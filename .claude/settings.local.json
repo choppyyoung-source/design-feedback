@@ -9,7 +9,8 @@
       "Read(//opt/homebrew/bin/**)",
       "Bash(export PATH=\"/Users/design/.nvm/versions/node/v24.12.0/bin:/Users/design/.local/node/bin:$PATH\")",
       "Bash(npx --version)",
-      "Bash(export PATH=\"/Users/design/.nvm/versions/node/v24.12.0/bin:$PATH\")"
+      "Bash(export PATH=\"/Users/design/.nvm/versions/node/v24.12.0/bin:$PATH\")",
+      "Bash(npx shadcn@latest init -d)"
     ]
   }
 }
