@@ -18,6 +18,7 @@ import { ProfileSection } from "@/components/profile/ProfileSection";
 import { ProfileViewModal } from "@/components/profile/ProfileViewModal";
 import { DesignerDirectory } from "@/components/profile/DesignerDirectory";
 import { ReviewGrid } from "@/components/dashboard/ReviewGrid";
+import { MyCommentsList } from "@/components/dashboard/MyCommentsList";
 import { useReviewStore } from "@/lib/store/review-store";
 import {
   saveProject,
@@ -68,7 +69,8 @@ export default function Home() {
     { url: string; text: string; ogImage?: string | null }[]
   >([]);
   const [capturingPages, setCapturingPages] = useState<Set<string>>(new Set());
-  const [dashboardTab, setDashboardTab] = useState<"reviews" | "profile" | "directory">("reviews");
+  const [dashboardTab, setDashboardTab] = useState<"requested" | "commented" | "explore" | "directory" | "profile">("requested");
+  const [showExplore, setShowExplore] = useState(false);
   const [viewProfileEmail, setViewProfileEmail] = useState<string | null>(null);
   const [myProjects, setMyProjects] = useState<
     ReturnType<typeof getUserProjects>
@@ -359,7 +361,7 @@ export default function Home() {
   // No project open → show dashboard or upload
   if (!project) {
     // Dashboard if logged in with projects
-    if (user && (myProjects.length > 0 || dashboardTab !== "reviews") && !showUpload) {
+    if (user && (myProjects.length > 0 || dashboardTab !== "requested") && !showUpload) {
       const reviewItems = myProjects.map((sp) => ({
         review: {
           id: sp.project.id,
@@ -377,53 +379,112 @@ export default function Home() {
         updatedAt: sp.updatedAt,
       }));
 
+      // My individual comments across all projects
+      const myComments = myProjects.flatMap((sp) =>
+        Object.entries(sp.annotations).flatMap(([pageId, annotations]) =>
+          (annotations as Annotation[])
+            .filter((a) => a.author_name === user.email)
+            .map((a) => ({
+              annotation: a,
+              projectName: sp.project.name,
+              pageName: sp.project.pages.find((p) => p.id === pageId)?.title ?? "",
+              projectId: sp.project.id,
+              imageUrl: sp.project.pages.find((p) => p.id === pageId)?.image_url ?? sp.project.pages[0]?.image_url,
+            }))
+        )
+      ).sort((a, b) => b.annotation.created_at.localeCompare(a.annotation.created_at));
+
       return (
-        <div className="flex-1 p-6 bg-gradient-to-b from-background to-muted/30">
-          <div className="max-w-5xl mx-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Design Feedback</h1>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{user.email}</span>
-                <Button variant="ghost" size="sm" onClick={handleLogout}>
-                  <LogOut className="h-3.5 w-3.5" />
-                </Button>
+        <div className="flex-1 bg-muted/20 min-h-screen">
+          {/* Sticky header */}
+          <div className="sticky top-0 z-10 bg-white border-b border-border/60">
+            <div className="max-w-5xl mx-auto px-6">
+              <div className="flex items-center justify-between h-16">
+                <h1 className="text-xl font-bold">Design Feedback</h1>
+                <button
+                  className="text-xs px-3 py-1.5 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  onClick={handleLogout}
+                >
+                  로그아웃
+                </button>
+              </div>
+              {/* Tabs */}
+              <div className="flex items-center gap-7 -mb-px mt-2">
+                {([
+                  { key: "requested", label: "요청한 피드백" },
+                  { key: "commented", label: "내가 남긴 피드백" },
+                  { key: "directory", label: "디자이너 찾기" },
+                  { key: "profile", label: "내 프로필" },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.key}
+                    className={`pb-3 text-[15px] font-medium border-b-2 transition-colors ${
+                      dashboardTab === tab.key
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => { setDashboardTab(tab.key); setViewProfileEmail(null); }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
+          </div>
 
-            {/* Dashboard tabs */}
-            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg mb-6 w-fit">
-              {([
-                { key: "reviews", label: "내 리뷰" },
-                { key: "profile", label: "내 프로필" },
-                { key: "directory", label: "디자이너 찾기" },
-              ] as const).map((tab) => (
-                <button
-                  key={tab.key}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    dashboardTab === tab.key
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  onClick={() => { setDashboardTab(tab.key); setViewProfileEmail(null); }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
+          {/* Content */}
+          <div className="max-w-5xl mx-auto px-6 py-6">
             {/* Tab content */}
-            {dashboardTab === "reviews" && (
+            {dashboardTab === "requested" && (
               <ReviewGrid
-                myReviews={reviewItems}
-                commentedReviews={[]}
+                reviews={reviewItems}
                 onSelect={(r) => {
                   const item = myProjects.find((sp) => sp.project.id === r.id);
                   if (item) handleSelectProject(item.project, item.annotations);
                 }}
                 onDelete={handleDeleteProject}
                 onNew={() => setShowUpload(true)}
+                emptyMessage="아직 요청한 리뷰가 없어요"
+                emptyDescription="디자인 리뷰를 받아보세요"
               />
+            )}
+
+            {dashboardTab === "commented" && (
+              <MyCommentsList
+                comments={myComments}
+                onSelectProject={(projectId) => {
+                  const item = myProjects.find((sp) => sp.project.id === projectId);
+                  if (item) handleSelectProject(item.project, item.annotations);
+                }}
+                onExplore={() => { setDashboardTab("explore"); setShowExplore(true); }}
+              />
+            )}
+
+            {dashboardTab === "explore" && (
+              <div>
+                <button
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/60 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mb-5"
+                  onClick={() => setDashboardTab("commented")}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  뒤로가기
+                </button>
+                <h2 className="text-lg font-semibold mb-4">피드백이 필요한 프로젝트</h2>
+                <ReviewGrid
+                  reviews={reviewItems}
+                  onSelect={(r) => {
+                    const item = myProjects.find((sp) => sp.project.id === r.id);
+                    if (item) handleSelectProject(item.project, item.annotations);
+                  }}
+                  onDelete={() => {}}
+                  onNew={() => {}}
+                  emptyMessage="아직 피드백이 필요한 프로젝트가 없어요"
+                  emptyDescription="첫 번째 프로젝트를 올려보세요"
+                  showDelete={false}
+                  hideNewButton
+                  showAuthor
+                />
+              </div>
             )}
 
             {dashboardTab === "profile" && (

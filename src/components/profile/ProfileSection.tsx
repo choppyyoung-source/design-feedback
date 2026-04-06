@@ -21,6 +21,7 @@ import {
   addRating,
   SPECIALTY_LABELS,
 } from "@/lib/profiles";
+import { getEmoji } from "@/lib/avatar";
 
 interface ProfileSectionProps {
   email: string;
@@ -105,8 +106,8 @@ export function ProfileSection({
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary flex items-center justify-center text-2xl font-bold">
-            {(name || email)[0].toUpperCase()}
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center text-2xl">
+            {getEmoji(email)}
           </div>
           <div className="flex-1">
             <h2 className="text-xl font-bold">{name || "프로필 설정"}</h2>
@@ -166,7 +167,7 @@ export function ProfileSection({
           {/* Experience card */}
           <Card className="p-5 space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground">경력 및 경험</h3>
-            <Textarea className="min-h-[120px] resize-none"
+            <Textarea
               placeholder="어떤 회사에서 어떤 일을 해왔는지 적어주세요&#10;&#10;예:&#10;- 토스 | 프로덕트 디자이너 (2022-현재)&#10;- 네이버 | UI/UX 인턴 (2021)"
               value={experience}
               onChange={(e) => setExperience(e.target.value)}
@@ -231,70 +232,83 @@ export function ProfileSection({
         <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent" />
 
         <div className="relative">
-          {/* Header row */}
-          <div className="flex items-start gap-4 mb-5">
-            <div className="w-18 h-18 rounded-2xl bg-white shadow-sm border text-primary flex items-center justify-center text-3xl font-bold flex-shrink-0"
-              style={{ width: 72, height: 72 }}
-            >
-              {(profile!.name || email)[0].toUpperCase()}
-            </div>
-            <div className="flex-1 pt-1">
-              <h2 className="text-xl font-bold">{profile!.name}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                  {SPECIALTY_LABELS[profile!.specialty]}
-                </span>
-                {avgRating !== null && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    {avgRating.toFixed(1)} ({profile!.ratings.length})
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{email}</p>
-            </div>
-            {isOwn && (
+          {/* Edit button */}
+          {isOwn && (
+            <div className="absolute top-0 right-0">
               <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
                 편집
               </Button>
-            )}
-          </div>
-
-          {/* Bio */}
-          {profile!.bio && (
-            <p className="text-sm leading-relaxed text-foreground/80">{profile!.bio}</p>
-          )}
-
-          {/* Links */}
-          {(profile!.linkedinUrl || profile!.portfolioUrl) && (
-            <div className="flex gap-2 mt-4">
-              {profile!.linkedinUrl && (
-                <a
-                  href={profile!.linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs font-medium hover:bg-muted transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  LinkedIn
-                </a>
-              )}
-              {profile!.portfolioUrl && (
-                <a
-                  href={profile!.portfolioUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs font-medium hover:bg-muted transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  포트폴리오
-                </a>
-              )}
             </div>
           )}
+
+          {/* Avatar */}
+          <div className="flex justify-center mb-4 pt-2">
+            <div className="rounded-2xl bg-white/80 shadow-sm border flex items-center justify-center text-4xl"
+              style={{ width: 80, height: 80 }}
+            >
+              {getEmoji(email)}
+            </div>
+          </div>
+
+          {/* Name + tag */}
+          <div className="text-center mb-4">
+            <h2 className="text-xl font-bold">{profile!.name}</h2>
+            <div className="flex items-center justify-center gap-2 mt-1.5">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                {SPECIALTY_LABELS[profile!.specialty]}
+              </span>
+              {avgRating !== null && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  {avgRating.toFixed(1)} ({profile!.ratings.length})
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Links row */}
+          <div className="flex justify-center gap-2 mt-4">
+            <a
+              href={`mailto:${email}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs font-medium hover:bg-muted transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+              이메일
+            </a>
+            {profile!.linkedinUrl && (
+              <a
+                href={profile!.linkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                <ExternalLink className="h-3 w-3" />
+                LinkedIn
+              </a>
+            )}
+            {profile!.portfolioUrl && (
+              <a
+                href={profile!.portfolioUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs font-medium hover:bg-muted transition-colors"
+              >
+                <ExternalLink className="h-3 w-3" />
+                포트폴리오
+              </a>
+            )}
+          </div>
         </div>
       </Card>
+
+      {/* Bio card */}
+      {profile!.bio && (
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3">소개</h3>
+          <p className="text-sm leading-relaxed text-foreground/80">{profile!.bio}</p>
+        </Card>
+      )}
 
       {/* Experience card */}
       {profile!.experience && (
