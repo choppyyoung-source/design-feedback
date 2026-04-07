@@ -18,6 +18,7 @@ interface ReviewStore {
   updateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   removeAnnotation: (id: string) => void;
   addReply: (annotationId: string, reply: import("@/types").AnnotationReply) => void;
+  removeReply: (annotationId: string, replyId: string) => void;
 
   // Status
   updateProjectStatus: (status: ProjectStatus, appliedIds?: string[]) => void;
@@ -130,6 +131,21 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
           [pid]: (s.pageAnnotations[pid] || []).map((a) =>
             a.id === annotationId
               ? { ...a, replies: [...(a.replies || []), reply] }
+              : a
+          ),
+        },
+      };
+    }),
+  removeReply: (annotationId, replyId) =>
+    set((s) => {
+      const pid = s.activePageId;
+      if (!pid) return s;
+      return {
+        pageAnnotations: {
+          ...s.pageAnnotations,
+          [pid]: (s.pageAnnotations[pid] || []).map((a) =>
+            a.id === annotationId
+              ? { ...a, replies: (a.replies || []).filter((r) => r.id !== replyId) }
               : a
           ),
         },

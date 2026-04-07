@@ -87,6 +87,20 @@ export function getUserProjects(email: string): StoredProject[] {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+export function getOtherProjects(email: string): StoredProject[] {
+  const all = getAllProjects();
+  return Object.values(all)
+    .filter((p) => p.project.created_by !== email && p.project.created_by !== "")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export function getPublicProjects(): StoredProject[] {
+  const all = getAllProjects();
+  return Object.values(all)
+    .filter((p) => p.project.created_by !== "" && (p.project.status ?? "receiving") === "receiving")
+    .sort((a, b) => b.project.created_at.localeCompare(a.project.created_at));
+}
+
 export function deleteProject(id: string) {
   const all = getAllProjects();
   delete all[id];

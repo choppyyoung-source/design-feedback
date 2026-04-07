@@ -371,71 +371,80 @@ export function ProfileSection({
 
             {/* Rating input */}
             {showRating && (
-              <div className={`p-3 mb-3 rounded-xl ${INNER_BG}`}>
-                <div className="flex items-center gap-0.5 mb-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} onClick={() => setRatingScore(n)} className="p-0.5">
-                      <Star
-                        className={`h-4 w-4 transition-colors ${
-                          n <= ratingScore
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground/20"
-                        }`}
-                      />
-                    </button>
-                  ))}
+              <div className="mb-3 rounded-xl border border-border/40 overflow-hidden">
+                {/* Star row */}
+                <div className="flex items-center justify-between px-4 py-3 bg-muted/20">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button key={n} onClick={() => setRatingScore(n)} className="p-0.5 transition-transform hover:scale-110">
+                        <Star
+                          className={`h-5 w-5 transition-colors ${
+                            n <= ratingScore
+                              ? "fill-amber-400 text-amber-400"
+                              : "text-muted-foreground/15 hover:text-muted-foreground/30"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground/40">{ratingScore}점</span>
                 </div>
-                <Input
-                  placeholder="한줄 리뷰를 남겨주세요..."
-                  value={ratingComment}
-                  onChange={(e) => setRatingComment(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmitRating();
-                  }}
-                  className="h-8 text-[12px] mb-2 bg-white"
-                />
-                <div className="flex gap-1.5">
-                  <Button
-                    size="sm"
-                    className="text-[11px] h-7 bg-foreground hover:bg-foreground/90"
-                    disabled={!ratingComment.trim()}
-                    onClick={handleSubmitRating}
-                  >
-                    등록
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-[11px] h-7"
-                    onClick={() => setShowRating(false)}
-                  >
-                    취소
-                  </Button>
+                {/* Input + actions */}
+                <div className="p-3">
+                  <Input
+                    placeholder="어떤 점이 좋았는지 한줄로 남겨주세요"
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSubmitRating();
+                    }}
+                    className="h-9 text-[13px] bg-white"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 mt-2.5">
+                    <Button
+                      size="sm"
+                      className="text-[12px] h-8 px-4 bg-foreground hover:bg-foreground/90 text-background"
+                      disabled={!ratingComment.trim()}
+                      onClick={handleSubmitRating}
+                    >
+                      등록
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[12px] h-8 text-muted-foreground/50"
+                      onClick={() => setShowRating(false)}
+                    >
+                      취소
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Rating list */}
             {profile!.ratings.length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {profile!.ratings
                   .slice()
                   .reverse()
                   .map((r, i) => (
-                    <div key={i} className={`flex items-start gap-2.5 px-3 py-2 rounded-lg ${INNER_BG}`}>
-                      <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        <span className="text-[11px] font-semibold">{r.score}</span>
+                    <div key={i} className="px-3 py-2.5 rounded-xl border border-border/30">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Star key={n} className={`h-3 w-3 ${n <= r.score ? "fill-amber-400 text-amber-400" : "text-muted-foreground/10"}`} />
+                          ))}
+                        </div>
+                        <span className="text-[11px] text-muted-foreground/35">{r.from}</span>
                       </div>
-                      <div className="min-w-0">
-                        <span className={CAPTION}>{r.from}</span>
-                        <p className="text-[12px] text-foreground/70 leading-relaxed">{r.comment}</p>
-                      </div>
+                      <p className="text-[13px] text-foreground/70 leading-relaxed">{r.comment}</p>
                     </div>
                   ))}
               </div>
             ) : (
-              <p className={`text-[13px] ${CAPTION}`}>아직 평점이 없어요</p>
+              <p className={`text-[12px] ${CAPTION}`}>아직 평점이 없어요</p>
             )}
           </div>
         </div>

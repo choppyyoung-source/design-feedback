@@ -17,6 +17,7 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { ProfileSection } from "@/components/profile/ProfileSection";
 import { ProfileViewModal } from "@/components/profile/ProfileViewModal";
 import { DesignerDirectory } from "@/components/profile/DesignerDirectory";
+import { FeedbackRequestModal } from "@/components/payment/FeedbackRequestModal";
 import { ReviewGrid } from "@/components/dashboard/ReviewGrid";
 import { MyCommentsList } from "@/components/dashboard/MyCommentsList";
 import { StatusBanner } from "@/components/review/StatusBanner";
@@ -25,6 +26,8 @@ import { useReviewStore } from "@/lib/store/review-store";
 import {
   saveProject,
   getUserProjects,
+  getPublicProjects,
+  getProject,
   deleteProject as deleteStoredProject,
 } from "@/lib/storage";
 import { markProjectSeen } from "@/lib/notifications";
@@ -37,6 +40,7 @@ import {
   LogOut,
   CheckCircle2,
   Upload,
+  MessageCircle,
 } from "lucide-react";
 
 interface User {
@@ -74,12 +78,16 @@ export default function Home() {
     { url: string; text: string; ogImage?: string | null }[]
   >([]);
   const [capturingPages, setCapturingPages] = useState<Set<string>>(new Set());
-  const [dashboardTab, setDashboardTab] = useState<"requested" | "commented" | "explore" | "directory" | "profile">("requested");
-  const [showExplore, setShowExplore] = useState(false);
+  const [dashboardTab, setDashboardTab] = useState<"requested" | "commented" | "directory" | "profile">("requested");
   const [viewProfileEmail, setViewProfileEmail] = useState<string | null>(null);
+  const [requestingDesigner, setRequestingDesigner] = useState<string | null>(null);
   const [myProjects, setMyProjects] = useState<
     ReturnType<typeof getUserProjects>
   >([]);
+  const [publicProjects, setPublicProjects] = useState<
+    ReturnType<typeof getPublicProjects>
+  >([]);
+  const [landingPath, setLandingPath] = useState<"give" | "receive" | null>(null);
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -97,7 +105,12 @@ export default function Home() {
         const session = localStorage.getItem("dr_session");
         if (session) {
           const u = JSON.parse(session);
-          setTimeout(() => setMyProjects(getUserProjects(u.email)), 0);
+          setTimeout(() => {
+            setMyProjects(getUserProjects(u.email));
+            setPublicProjects(getPublicProjects().filter((p) => p.project.created_by !== u.email));
+          }, 0);
+        } else {
+          setTimeout(() => setPublicProjects(getPublicProjects()), 0);
         }
       } catch {
         /* ignore */
@@ -107,7 +120,10 @@ export default function Home() {
   });
 
   const refreshProjects = useCallback(
-    (email: string) => setMyProjects(getUserProjects(email)),
+    (email: string) => {
+      setMyProjects(getUserProjects(email));
+      setPublicProjects(getPublicProjects().filter((p) => p.project.created_by !== email));
+    },
     []
   );
 
@@ -115,12 +131,15 @@ export default function Home() {
     (authedUser: User) => {
       setUser(authedUser);
       setShowAuth(false);
-      refreshProjects(authedUser.email);
-      if (project) {
-        setProject({ ...project, created_by: authedUser.email });
+      // Claim ownership of current project if it has no owner
+      if (project && !project.created_by) {
+        const updated = { ...project, created_by: authedUser.email };
+        setProject(updated);
+        saveProject(updated, pageAnnotations);
       }
+      refreshProjects(authedUser.email);
     },
-    [project, setProject, refreshProjects]
+    [project, pageAnnotations, setProject, refreshProjects]
   );
 
   const handleLogout = useCallback(() => {
@@ -422,7 +441,7 @@ export default function Home() {
   // No project open → show dashboard or upload
   if (!project) {
     // Dashboard if logged in with projects
-    if (user && (myProjects.length > 0 || dashboardTab !== "requested") && !showUpload) {
+    if (user && (myProjects.length > 0 || dashboardTab !== "requested") && !showUpload && !landingPath) {
       const reviewItems = myProjects.map((sp) => ({
         review: {
           id: sp.project.id,
@@ -464,9 +483,9 @@ export default function Home() {
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border/40">
             <div className="max-w-5xl mx-auto px-6">
               <div className="flex items-center justify-between h-14">
-                <h1 className="text-base font-bold tracking-tight cursor-pointer" onClick={() => window.location.reload()}>Design Feedback</h1>
+                <h1 className="text-sm font-bold tracking-tight cursor-pointer" onClick={() => window.location.reload()}>Design Feedback</h1>
                 <button
-                  className="text-[11px] px-2.5 py-1 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors"
+                  className="text-[11px] text-muted-foreground/40 hover:text-foreground transition-colors"
                   onClick={handleLogout}
                 >
                   로그아웃
@@ -481,10 +500,10 @@ export default function Home() {
                 ] as const).map((tab) => (
                   <button
                     key={tab.key}
-                    className={`px-3 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                    className={`px-3 py-2 text-[13px] font-medium rounded-t-lg transition-colors ${
                       dashboardTab === tab.key
                         ? "text-foreground bg-muted/40"
-                        : "text-muted-foreground/60 hover:text-foreground hover:bg-muted/20"
+                        : "text-muted-foreground/50 hover:text-foreground hover:bg-muted/20"
                     }`}
                     onClick={() => { setDashboardTab(tab.key); setViewProfileEmail(null); }}
                   >
@@ -505,7 +524,7 @@ export default function Home() {
                   className="inline-flex items-center gap-2.5 px-1.5 py-1.5 pr-5 rounded-full bg-gradient-to-r from-white via-white/90 to-white/70 backdrop-blur-xl border border-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all text-left group hover:-translate-y-px"
                   onClick={() => { setDashboardTab("directory" as never); setViewProfileEmail(null); }}
                 >
-                  <span className="px-3 py-1 rounded-full text-white text-xs font-semibold bg-[length:200%_200%] animate-[gradient-shift_3s_ease_infinite] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">디자이너 찾기</span>
+                  <span className="px-3 py-1 rounded-full text-white text-xs font-semibold bg-[length:200%_200%] animate-[gradient-shift_3s_ease_infinite] bg-gradient-to-r from-emerald-400 via-cyan-500 to-blue-500">디자이너 찾기</span>
                   <span className="text-[13px] text-muted-foreground">피드백 받고싶은 디자이너를 찾아보세요</span>
                   <span className="text-sm text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all ml-1">→</span>
                 </button>
@@ -531,36 +550,28 @@ export default function Home() {
                   const item = myProjects.find((sp) => sp.project.id === projectId);
                   if (item) handleSelectProject(item.project, item.annotations);
                 }}
-                onExplore={() => { setDashboardTab("explore"); setShowExplore(true); }}
+                publicProjects={publicProjects.map((sp) => ({
+                  review: {
+                    id: sp.project.id,
+                    title: sp.project.name,
+                    image_url: sp.project.pages[0]?.image_url ?? "",
+                    image_width: sp.project.pages[0]?.image_width ?? 0,
+                    image_height: sp.project.pages[0]?.image_height ?? 0,
+                    design_context: null,
+                    share_token: "",
+                    created_by: sp.project.created_by,
+                    created_at: sp.project.created_at,
+                    updated_at: sp.project.updated_at,
+                  },
+                  annotations: Object.values(sp.annotations).flat(),
+                  updatedAt: sp.updatedAt,
+                  status: sp.project.status,
+                }))}
+                onSelectPublicProject={(r) => {
+                  const item = publicProjects.find((sp) => sp.project.id === r.id);
+                  if (item) handleSelectProject(item.project, item.annotations);
+                }}
               />
-            )}
-
-            {dashboardTab === "explore" && (
-              <div>
-                <div className="flex items-center gap-2.5 mb-5">
-                  <button
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
-                    onClick={() => setDashboardTab("commented")}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                  <h2 className="text-[15px] font-semibold">피드백이 필요한 프로젝트</h2>
-                </div>
-                <ReviewGrid
-                  reviews={reviewItems}
-                  onSelect={(r) => {
-                    const item = myProjects.find((sp) => sp.project.id === r.id);
-                    if (item) handleSelectProject(item.project, item.annotations);
-                  }}
-                  onDelete={() => {}}
-                  onNew={() => {}}
-                  emptyMessage="아직 피드백이 필요한 프로젝트가 없어요"
-                  emptyDescription="첫 번째 프로젝트를 올려보세요"
-                  showDelete={false}
-                  hideNewButton
-                  showAuthor
-                />
-              </div>
             )}
 
             {dashboardTab === "profile" && (
@@ -629,6 +640,7 @@ export default function Home() {
             {dashboardTab === "directory" && !viewProfileEmail && (
               <DesignerDirectory
                 onSelectProfile={(email) => setViewProfileEmail(email)}
+                onRequestFeedback={(designerEmail) => setRequestingDesigner(designerEmail)}
                 onBack={() => setDashboardTab("requested")}
                 currentUserEmail={user.email}
               />
@@ -708,59 +720,257 @@ export default function Home() {
           </div>
 
           <AuthModal open={showAuth} onOpenChange={setShowAuth} onAuth={handleAuth} />
+          {requestingDesigner && (
+            <FeedbackRequestModal
+              open={!!requestingDesigner}
+              onOpenChange={(open) => { if (!open) setRequestingDesigner(null); }}
+              designerEmail={requestingDesigner}
+              currentUserEmail={user.email}
+            />
+          )}
         </div>
       );
     }
 
-    // Upload screen
+    // Upload screen (from dashboard "새 링크 올리기")
+    if (showUpload) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-6">
+          <div className="w-full max-w-md">
+            <div className="flex items-center gap-2.5 mb-6">
+              <button
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+                onClick={() => setShowUpload(false)}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <h2 className="text-[14px] font-semibold">새 프로젝트</h2>
+            </div>
+            <ImageUploader
+              onImageSelected={handleImageSelected}
+              onUrlScreenshot={handleUrlScreenshot}
+            />
+          </div>
+          <AuthModal
+            open={showAuth}
+            onOpenChange={setShowAuth}
+            onAuth={handleAuth}
+          />
+        </div>
+      );
+    }
+
+    // Landing: two-path selection or specific path content
+    if (!landingPath) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-6">
+          <div className="w-full mx-auto" style={{ maxWidth: "384px" }}>
+            {/* Logo */}
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-foreground mb-5">
+                <Pin className="h-5 w-5 text-background rotate-45" />
+              </div>
+              <h1 className="text-[15px] font-bold tracking-tight mb-1.5">
+                Design Feedback
+              </h1>
+              <p className="text-[12px] text-muted-foreground/40 leading-relaxed">
+                디자이너의 피드백을 받고, AI에서 바로 적용하세요
+              </p>
+            </div>
+
+            {/* CTA cards */}
+            <div className="space-y-2.5">
+              <button
+                className="w-full rounded-2xl border border-border/70 bg-card p-5 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                onClick={() => setLandingPath("give")}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <MessageCircle className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-semibold">피드백 남기기</p>
+                      <span className="text-[12px] text-muted-foreground/20 group-hover:text-foreground/40 group-hover:translate-x-0.5 transition-all">→</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground/40 mt-1 leading-relaxed">
+                      다른 디자이너의 프로젝트를 탐색하고<br />핀을 찍어 피드백을 남겨보세요
+                    </p>
+                  </div>
+                </div>
+              </button>
+              <button
+                className="w-full rounded-2xl border border-border/70 bg-card p-5 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                onClick={() => setLandingPath("receive")}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Upload className="h-4 w-4 text-violet-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-semibold">피드백 받기</p>
+                      <span className="text-[12px] text-muted-foreground/20 group-hover:text-foreground/40 group-hover:translate-x-0.5 transition-all">→</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground/40 mt-1 leading-relaxed">
+                      내 디자인 링크를 올리고<br />전문 디자이너의 피드백을 받아보세요
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-10 text-center">
+              {user ? (
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/35">
+                  <span>{user.email}</span>
+                  <span className="text-muted-foreground/20">·</span>
+                  <button
+                    className="hover:text-foreground transition-colors underline underline-offset-2 decoration-muted-foreground/20 hover:decoration-foreground/40"
+                    onClick={handleLogout}
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="text-[11px] text-muted-foreground/35 hover:text-foreground transition-colors"
+                  onClick={() => setShowAuth(true)}
+                >
+                  이미 계정이 있나요? <span className="underline underline-offset-2 decoration-muted-foreground/20">로그인</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <AuthModal
+            open={showAuth}
+            onOpenChange={setShowAuth}
+            onAuth={handleAuth}
+          />
+        </div>
+      );
+    }
+
+    // "피드백 남기기" path — browse public projects
+    if (landingPath === "give") {
+      const exploreItems = publicProjects.map((sp) => ({
+        review: {
+          id: sp.project.id,
+          title: sp.project.name,
+          image_url: sp.project.pages[0]?.image_url ?? "",
+          image_width: sp.project.pages[0]?.image_width ?? 0,
+          image_height: sp.project.pages[0]?.image_height ?? 0,
+          design_context: null,
+          share_token: "",
+          created_by: sp.project.created_by,
+          created_at: sp.project.created_at,
+          updated_at: sp.project.updated_at,
+        },
+        annotations: Object.values(sp.annotations).flat(),
+        updatedAt: sp.updatedAt,
+        status: sp.project.status,
+      }));
+
+      return (
+        <div className="flex-1 bg-background min-h-screen">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border/40">
+            <div className="max-w-5xl mx-auto px-6">
+              <div className="flex items-center h-14 gap-2.5">
+                <button
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+                  onClick={() => setLandingPath(null)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <h1 className="text-[14px] font-semibold tracking-tight">피드백이 필요한 프로젝트</h1>
+              </div>
+            </div>
+          </div>
+          <div className="max-w-5xl mx-auto px-6 py-6">
+            <ReviewGrid
+              reviews={exploreItems}
+              onSelect={(r) => {
+                if (!user) {
+                  setShowAuth(true);
+                  return;
+                }
+                const item = publicProjects.find((sp) => sp.project.id === r.id);
+                if (item) handleSelectProject(item.project, item.annotations);
+              }}
+              onDelete={() => {}}
+              onNew={() => {}}
+              emptyMessage="아직 피드백이 필요한 프로젝트가 없어요"
+              emptyDescription="조금만 기다려주세요"
+              showDelete={false}
+              hideNewButton
+              showAuthor
+            />
+          </div>
+          <AuthModal
+            open={showAuth}
+            onOpenChange={setShowAuth}
+            onAuth={(authedUser) => {
+              handleAuth(authedUser);
+              setPublicProjects(getPublicProjects().filter((p) => p.project.created_by !== authedUser.email));
+            }}
+          />
+        </div>
+      );
+    }
+
+    // "피드백 받기" path — upload flow
     return (
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-extrabold tracking-tight">
-              Design Feedback
-            </h1>
-            <p className="text-[14px] text-muted-foreground/60">
-              진짜 디자이너의 피드백을, AI에서 바로 쓸 수 있게
-            </p>
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-6">
+        <div className="w-full max-w-md">
+          <div className="flex items-center gap-2.5 mb-6">
+            <button
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+              onClick={() => setLandingPath(null)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <h2 className="text-[14px] font-semibold">피드백 받기</h2>
           </div>
           <ImageUploader
             onImageSelected={handleImageSelected}
             onUrlScreenshot={handleUrlScreenshot}
           />
-          {user ? (
-            <div className="flex items-center justify-center gap-2 text-[12px] text-muted-foreground/50">
-              <span>{user.email}로 로그인됨</span>
-              <button
-                className="text-foreground/60 hover:text-foreground transition-colors underline underline-offset-2"
-                onClick={handleLogout}
-              >
-                로그아웃
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3">
-              <Button
-                className="w-full h-11 bg-foreground hover:bg-foreground/90 text-background font-semibold"
-                onClick={() => setShowAuth(true)}
-              >
-                시작하기
-              </Button>
-              <button
-                className="text-[12px] text-muted-foreground/50 hover:text-foreground transition-colors"
-                onClick={() => setShowAuth(true)}
-              >
-                이미 계정이 있나요? <span className="underline underline-offset-2">로그인</span>
-              </button>
-            </div>
-          )}
+          <div className="mt-6">
+            {user ? (
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/35">
+                <span>{user.email}</span>
+                <span className="text-muted-foreground/20">·</span>
+                <button
+                  className="hover:text-foreground transition-colors underline underline-offset-2 decoration-muted-foreground/20"
+                  onClick={handleLogout}
+                >
+                  로그아웃
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <Button
+                  className="w-full h-11 bg-foreground hover:bg-foreground/90 text-background font-semibold text-[13px]"
+                  onClick={() => setShowAuth(true)}
+                >
+                  로그인하고 시작하기
+                </Button>
+                <button
+                  className="text-[11px] text-muted-foreground/35 hover:text-foreground transition-colors"
+                  onClick={() => setShowAuth(true)}
+                >
+                  이미 계정이 있나요? <span className="underline underline-offset-2 decoration-muted-foreground/20">로그인</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <AuthModal
           open={showAuth}
           onOpenChange={setShowAuth}
           onAuth={handleAuth}
         />
-
       </div>
     );
   }
@@ -797,7 +1007,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(!project.status || project.status === "receiving") && (
+          {(!project.status || project.status === "receiving") && user?.email === project.created_by && (
             <Button
               size="sm"
               onClick={() => setShowExport(true)}
@@ -851,6 +1061,7 @@ export default function Home() {
           onSelectPage={setActivePageId}
           onDeletePage={store.removePage}
           onAddPage={() => setShowAddPage(true)}
+          isOwner={user?.email === project.created_by}
         />
 
         {/* Canvas */}
@@ -863,6 +1074,8 @@ export default function Home() {
               imageHeight={activePage.image_height}
               authorName={user?.email ?? "Anonymous"}
               isOwner={user?.email === project.created_by}
+              isLoggedIn={!!user}
+              onLoginClick={() => setShowAuth(true)}
               projectStatus={project.status ?? "receiving"}
             />
           )}

@@ -23,6 +23,8 @@ interface ReviewCanvasProps {
   imageHeight: number;
   authorName?: string;
   isOwner?: boolean;
+  isLoggedIn?: boolean;
+  onLoginClick?: () => void;
   projectStatus?: import("@/types").ProjectStatus;
 }
 
@@ -33,6 +35,8 @@ export function ReviewCanvas({
   imageHeight,
   authorName = "Anonymous",
   isOwner,
+  isLoggedIn = true,
+  onLoginClick,
   projectStatus = "receiving",
 }: ReviewCanvasProps) {
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -151,6 +155,15 @@ export function ReviewCanvas({
         if (!upCoords) return;
 
         const currentDragRect = dragRectRef.current;
+
+        // If not logged in, prompt login instead of placing pin
+        if (!isLoggedIn) {
+          setDragRect(null);
+          dragRectRef.current = null;
+          isDraggingRef.current = false;
+          onLoginClick?.();
+          return;
+        }
 
         if (isDraggingRef.current && currentDragRect && currentDragRect.wPct > 1 && currentDragRect.hPct > 1) {
           // Region selection complete

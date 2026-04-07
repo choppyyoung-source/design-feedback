@@ -1,7 +1,8 @@
 "use client";
 
-import type { Annotation, ProjectStatus } from "@/types";
+import type { Annotation, ProjectStatus, Review } from "@/types";
 import { MessageCircle } from "lucide-react";
+import { ReviewGrid } from "./ReviewGrid";
 
 const STATUS_BADGE_STYLE: Record<ProjectStatus, { label: string; bg: string; text: string; dot: string }> = {
   receiving: { label: "피드백 받는 중", bg: "bg-blue-50 border border-blue-200/60", text: "text-blue-600", dot: "bg-blue-500 animate-pulse" },
@@ -19,10 +20,19 @@ interface CommentItem {
   projectStatus?: ProjectStatus;
 }
 
+interface PublicProjectItem {
+  review: Review;
+  annotations: Annotation[];
+  updatedAt: string;
+  status?: ProjectStatus;
+}
+
 interface MyCommentsListProps {
   comments: CommentItem[];
   onSelectProject: (projectId: string) => void;
   onExplore?: () => void;
+  publicProjects?: PublicProjectItem[];
+  onSelectPublicProject?: (r: Review) => void;
 }
 
 const SEVERITY_STYLE: Record<string, { bg: string; text: string; dot: string; label: string }> = {
@@ -32,22 +42,7 @@ const SEVERITY_STYLE: Record<string, { bg: string; text: string; dot: string; la
   praise: { bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500", label: "좋아요" },
 };
 
-export function MyCommentsList({ comments, onSelectProject, onExplore }: MyCommentsListProps) {
-  if (comments.length === 0) {
-    return (
-      <div className="space-y-4">
-        {onExplore && <ExploreBanner onClick={onExplore} />}
-        <div className="py-16 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center mx-auto mb-3">
-            <MessageCircle className="h-5 w-5 text-muted-foreground/30" />
-          </div>
-          <p className="text-sm font-medium mb-0.5">아직 남긴 피드백이 없어요</p>
-          <p className="text-xs text-muted-foreground/60">프로젝트에 피드백을 남겨보세요</p>
-        </div>
-      </div>
-    );
-  }
-
+export function MyCommentsList({ comments, onSelectProject, onExplore, publicProjects, onSelectPublicProject }: MyCommentsListProps) {
   // Group by project
   const grouped = comments.reduce<Record<string, CommentItem[]>>((acc, item) => {
     if (!acc[item.projectId]) acc[item.projectId] = [];
@@ -55,11 +50,14 @@ export function MyCommentsList({ comments, onSelectProject, onExplore }: MyComme
     return acc;
   }, {});
 
-  return (
-    <div className="space-y-4">
-      {onExplore && <ExploreBanner onClick={onExplore} />}
+  const hasComments = comments.length > 0;
 
-      {Object.entries(grouped).map(([projectId, items]) => {
+  return (
+    <div className="space-y-6">
+      {/* My comments section */}
+      {hasComments ? (
+        <div className="space-y-3">
+          {Object.entries(grouped).map(([projectId, items]) => {
         const first = items[0];
         return (
           <div
@@ -139,21 +137,43 @@ export function MyCommentsList({ comments, onSelectProject, onExplore }: MyComme
             </div>
           </div>
         );
-      })}
-    </div>
-  );
-}
+          })}
+        </div>
+      ) : (
+        <div className="py-16 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center mx-auto mb-3">
+            <MessageCircle className="h-5 w-5 text-muted-foreground/30" />
+          </div>
+          <p className="text-sm font-medium mb-0.5">아직 남긴 피드백이 없어요</p>
+          <p className="text-xs text-muted-foreground/60">아래 프로젝트에 피드백을 남겨보세요</p>
+        </div>
+      )}
 
-function ExploreBanner({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      className="inline-flex items-center gap-2.5 px-1.5 py-1.5 pr-5 rounded-full bg-gradient-to-r from-white via-white/90 to-white/70 backdrop-blur-xl border border-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all text-left group hover:-translate-y-px"
-      onClick={onClick}
-    >
-      <span className="px-3 py-1 rounded-full text-white text-xs font-semibold bg-[length:200%_200%] animate-[gradient-shift_3s_ease_infinite] bg-gradient-to-r from-emerald-400 via-cyan-500 to-blue-500">프로젝트 찾기</span>
-      <span className="text-[13px] text-muted-foreground">피드백이 필요한 프로젝트를 찾아보세요</span>
-      <span className="text-sm text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all ml-1">→</span>
-    </button>
+      {/* Public projects needing feedback */}
+      {publicProjects && publicProjects.length > 0 && (
+        <section className="mt-6">
+          <div className="flex items-center gap-1.5 mb-5">
+            <span className="text-[13px] font-semibold">피드백이 필요한 프로젝트</span>
+            <span className="text-[11px] text-muted-foreground/40">{publicProjects.length}</span>
+          </div>
+          <ReviewGrid
+            reviews={publicProjects}
+            onSelect={(r) => onSelectPublicProject?.(r)}
+            onDelete={() => {}}
+            onNew={() => {}}
+            emptyMessage=""
+            emptyDescription=""
+            showDelete={false}
+            hideNewButton
+            showAuthor
+          />
+        </section>
+      )}
+
+      {(!publicProjects || publicProjects.length === 0) && !hasComments && (
+        <p className="text-xs text-muted-foreground/50 text-center">아직 피드백이 필요한 프로젝트가 없어요</p>
+      )}
+    </div>
   );
 }
 

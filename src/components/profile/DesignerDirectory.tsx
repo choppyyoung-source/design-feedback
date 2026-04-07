@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Star, Search, ArrowLeft } from "lucide-react";
 import {
   type UserProfile,
@@ -13,12 +14,14 @@ import { getEmoji } from "@/lib/avatar";
 
 interface DesignerDirectoryProps {
   onSelectProfile: (email: string) => void;
+  onRequestFeedback?: (designerEmail: string) => void;
   onBack?: () => void;
   currentUserEmail?: string;
 }
 
 export function DesignerDirectory({
   onSelectProfile,
+  onRequestFeedback,
   onBack,
   currentUserEmail,
 }: DesignerDirectoryProps) {
@@ -28,7 +31,7 @@ export function DesignerDirectory({
   const [search, setSearch] = useState("");
 
   const filtered = profiles
-    .filter((p) => !p.isPrivate)
+    .filter((p) => !p.isPrivate && p.email !== currentUserEmail)
     .filter(
       (p) =>
         !search ||
@@ -86,9 +89,9 @@ export function DesignerDirectory({
             const isMe = profile.email === currentUserEmail;
 
             return (
-              <div key={profile.email}>
+              <div key={profile.email} className="flex">
                 <div
-                  className="p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all border border-border/70 bg-card overflow-hidden rounded-2xl"
+                  className="p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all border border-border/70 bg-card overflow-hidden rounded-2xl w-full flex flex-col"
                   onClick={() => onSelectProfile(profile.email)}
                 >
                   {/* Top: Avatar + Info */}
@@ -124,10 +127,22 @@ export function DesignerDirectory({
                   </div>
 
                   {/* Bio */}
-                  {profile.bio && (
-                    <p className="text-[12px] text-muted-foreground/60 line-clamp-2 mt-2.5 leading-relaxed">
-                      {profile.bio}
-                    </p>
+                  <p className="text-[12px] text-muted-foreground/60 line-clamp-2 mt-2.5 leading-relaxed flex-1">
+                    {profile.bio || "아직 한줄 소개를 등록하지 않았어요"}
+                  </p>
+
+                  {/* Request button */}
+                  {!isMe && onRequestFeedback && (
+                    <Button
+                      size="sm"
+                      className="w-full mt-3 h-8 text-[12px] bg-foreground hover:bg-foreground/90 text-background"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestFeedback(profile.email);
+                      }}
+                    >
+                      피드백 요청하기
+                    </Button>
                   )}
                 </div>
               </div>

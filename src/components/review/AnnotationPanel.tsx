@@ -50,6 +50,7 @@ export function AnnotationPanel({
     selectedAnnotationId,
     setSelectedAnnotationId,
     addReply,
+    removeReply,
   } = useReviewStore();
 
   const annotations = activePageId
@@ -59,7 +60,8 @@ export function AnnotationPanel({
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState(projectDescription ?? "");
 
-  const canEditDesc = !!onDescriptionChange;
+  const isProjectOwner = !!currentUserEmail && currentUserEmail === ownerEmail;
+  const canEditDesc = !!onDescriptionChange && isProjectOwner;
 
   const saveDesc = (val: string) => {
     const trimmed = val.trim();
@@ -111,7 +113,7 @@ export function AnnotationPanel({
           {descriptionBlock}
         </div>
         <div className="flex-1">
-          <EmptyState onLoginClick={onLoginClick} />
+          <EmptyState onLoginClick={onLoginClick} isProjectOwner={!!currentUserEmail && currentUserEmail === ownerEmail} />
         </div>
       </div>
     );
@@ -151,6 +153,7 @@ export function AnnotationPanel({
           };
           addReply(annotation.id, reply);
         }}
+        onDeleteReply={(replyId) => removeReply(annotation.id, replyId)}
         currentUserEmail={currentUserEmail}
         ownerEmail={ownerEmail}
         onProfileClick={onProfileClick}
@@ -203,6 +206,7 @@ function AnnotationItem({
   onSelect,
   onDelete,
   onReply,
+  onDeleteReply,
   currentUserEmail,
   ownerEmail,
   onProfileClick,
@@ -213,6 +217,7 @@ function AnnotationItem({
   onSelect: () => void;
   onDelete: () => void;
   onReply: (text: string) => void;
+  onDeleteReply: (replyId: string) => void;
   currentUserEmail?: string;
   ownerEmail?: string;
   onProfileClick?: (email: string) => void;
@@ -281,34 +286,50 @@ function AnnotationItem({
               >
                 <MessageCircle className="h-3 w-3" />
               </button>
-              <button
-                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/30 hover:text-destructive transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
+              {isMe && (
+                <button
+                  className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/30 hover:text-destructive transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Replies */}
           {replies.length > 0 && (
-            <div className="mt-2 pl-2.5 border-l border-border/30 space-y-1.5">
+            <div className="mt-2.5 space-y-1">
               {replies.map((reply) => {
                 const replyIsOwner = ownerEmail && reply.author_name === ownerEmail;
                 const replyIsMe = currentUserEmail && reply.author_name === currentUserEmail;
                 return (
-                  <div key={reply.id}>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] text-foreground/40">
-                        {reply.author_name}
-                      </span>
-                      {replyIsMe && <span className="text-[9px] text-primary/50 font-medium">나</span>}
-                      {replyIsOwner && <span className="text-[9px] text-violet-400 font-medium">작성자</span>}
+                  <div key={reply.id} className="group/reply flex gap-2 pl-1 py-1.5 rounded-md hover:bg-muted/20 transition-colors">
+                    <div className="w-5 h-5 rounded-full bg-muted/50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-[9px]">↳</span>
                     </div>
-                    <p className="text-[12px] text-foreground/50 leading-relaxed">{reply.comment}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-foreground/80 leading-relaxed">{reply.comment}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground/40">{reply.author_name}</span>
+                        {replyIsMe && <span className="text-[9px] text-primary/50 font-medium">나</span>}
+                        {replyIsOwner && <span className="text-[9px] text-violet-400 font-medium">작성자</span>}
+                        {replyIsMe && (
+                          <button
+                            className="ml-auto opacity-0 group-hover/reply:opacity-100 transition-opacity h-4 w-4 flex items-center justify-center rounded text-muted-foreground/30 hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteReply(reply.id);
+                            }}
+                          >
+                            <Trash2 className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -347,7 +368,7 @@ function AnnotationItem({
   );
 }
 
-function EmptyState({ onLoginClick }: { onLoginClick?: () => void }) {
+function EmptyState({ onLoginClick, isProjectOwner }: { onLoginClick?: () => void; isProjectOwner?: boolean }) {
   const isLoggedIn =
     typeof window !== "undefined" &&
     !!localStorage.getItem("dr_session");
@@ -357,14 +378,32 @@ function EmptyState({ onLoginClick }: { onLoginClick?: () => void }) {
       <div className="w-12 h-12 rounded-xl bg-muted/40 flex items-center justify-center mb-4">
         <MessageCircle className="h-5 w-5 text-muted-foreground/30" />
       </div>
-      <p className="text-sm font-medium mb-1">아직 피드백이 없어요</p>
-      <p className="text-muted-foreground/50 text-xs mb-5">
-        디자인에 핀을 찍어 피드백을 남겨보세요
-      </p>
-      {!isLoggedIn && onLoginClick && (
-        <Button size="sm" className="gap-1.5 bg-foreground hover:bg-foreground/90" onClick={onLoginClick}>
-          로그인
-        </Button>
+      {!isLoggedIn ? (
+        <>
+          <p className="text-sm font-medium mb-1">디자인 피드백을 받아보세요</p>
+          <p className="text-muted-foreground/50 text-xs mb-5">
+            로그인하고, 피드백을 요청해보세요
+          </p>
+          {onLoginClick && (
+            <Button size="sm" className="gap-1.5 bg-foreground hover:bg-foreground/90" onClick={onLoginClick}>
+              로그인
+            </Button>
+          )}
+        </>
+      ) : isProjectOwner ? (
+        <>
+          <p className="text-sm font-medium mb-1">피드백을 받는 중이에요</p>
+          <p className="text-muted-foreground/50 text-xs">
+            디자인 피드백이 달리면, 메일로 알려드릴게요
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-sm font-medium mb-1">아직 피드백이 없어요</p>
+          <p className="text-muted-foreground/50 text-xs">
+            디자인에 핀을 찍어 피드백을 남겨보세요
+          </p>
+        </>
       )}
     </div>
   );

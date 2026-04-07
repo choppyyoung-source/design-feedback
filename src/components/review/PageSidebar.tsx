@@ -12,6 +12,7 @@ interface PageSidebarProps {
   onSelectPage: (pageId: string) => void;
   onDeletePage: (pageId: string) => void;
   onAddPage: () => void;
+  isOwner?: boolean;
 }
 
 export function PageSidebar({
@@ -21,19 +22,22 @@ export function PageSidebar({
   onSelectPage,
   onDeletePage,
   onAddPage,
+  isOwner = true,
 }: PageSidebarProps) {
   return (
     <div className="w-52 border-r border-border/50 bg-muted/10 flex flex-col">
       <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
         <span className="text-[13px] font-semibold text-foreground/70">페이지</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
-          onClick={onAddPage}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
+        {isOwner && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
+            onClick={onAddPage}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
       <ScrollArea className="flex-1">
         <div className="p-2.5 space-y-1.5">
@@ -51,7 +55,7 @@ export function PageSidebar({
                 onClick={() => onSelectPage(page.id)}
               >
                 {/* Delete button */}
-                {pages.length > 1 && (
+                {isOwner && pages.length > 1 && (
                   <button
                     className="absolute top-1.5 right-1.5 z-10 w-5 h-5 rounded-full bg-foreground/60 text-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => {
