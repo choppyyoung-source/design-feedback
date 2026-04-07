@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import puppeteer from "puppeteer";
 
 export async function POST(req: NextRequest) {
   const { url } = await req.json();
@@ -8,7 +7,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
   }
 
-  // Basic URL validation
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
@@ -17,10 +15,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    let browser;
+
+    if (process.env.VERCEL) {
+      // Vercel serverless: use chromium + puppeteer-core
+      const chromium = (await import("@sparticuz/chromium")).default;
+      const puppeteerCore = (await import("puppeteer-core")).default;
+      browser = await puppeteerCore.launch({
+        args: chromium.args,
+        defaultViewport: { width: 1440, height: 900 },
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      });
+    } else {
+      // Local: use full puppeteer
+      const puppeteer = (await import("puppeteer")).default;
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+    }
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
@@ -29,7 +43,6 @@ export async function POST(req: NextRequest) {
       timeout: 15000,
     });
 
-    // Wait a bit for animations/lazy loading
     await new Promise((r) => setTimeout(r, 1000));
 
     const screenshot = await page.screenshot({
@@ -39,8 +52,7 @@ export async function POST(req: NextRequest) {
 
     await browser.close();
 
-    // Return as base64 data URL
-    const base64 = Buffer.from(screenshot).toString("base64");
+    const base64 = Buffer.from(screenshot as Buffer).toString("base64");
     return NextResponse.json({
       image: `data:image/png;base64,${base64}`,
       width: 1440,
