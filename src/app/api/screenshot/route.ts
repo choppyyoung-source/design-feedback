@@ -18,13 +18,15 @@ export async function POST(req: NextRequest) {
     let browser;
 
     if (process.env.VERCEL) {
-      // Vercel serverless: use chromium + puppeteer-core
-      const chromium = (await import("@sparticuz/chromium")).default;
+      // Vercel serverless: use chromium-min + puppeteer-core
+      const chromium = (await import("@sparticuz/chromium-min")).default;
       const puppeteerCore = (await import("puppeteer-core")).default;
       browser = await puppeteerCore.launch({
         args: chromium.args,
         defaultViewport: { width: 1440, height: 900 },
-        executablePath: await chromium.executablePath(),
+        executablePath: await chromium.executablePath(
+          "https://github.com/nichochar/chromium-bidi/releases/download/v131.0.1/chromium-v131.0.1-pack.tar"
+        ),
         headless: true,
       });
     } else {
