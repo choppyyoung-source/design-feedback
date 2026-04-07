@@ -30,10 +30,16 @@ export interface DesignContext {
   description?: string;
 }
 
+export type ProjectStatus = "receiving" | "applying" | "completed";
+
 export interface Project {
   id: string;
   name: string;
   base_url: string;
+  status?: ProjectStatus;
+  appliedCommentIds?: string[];
+  completedAt?: string;
+  completedImageUrl?: string;
   pages: ReviewPage[];
   created_by: string;
   created_at: string;
@@ -47,6 +53,7 @@ export interface ReviewPage {
   image_url: string;
   image_width: number;
   image_height: number;
+  description?: string;
 }
 
 // Legacy Review type (still used internally for canvas)

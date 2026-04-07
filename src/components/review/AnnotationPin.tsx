@@ -31,78 +31,24 @@ export function AnnotationPin({
   const isDragging = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
 
-  const handleMouseDown = useCallback(
+  const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isPinMode) return; // Don't drag when placing new pins
       e.stopPropagation();
       e.preventDefault();
-      isDragging.current = false;
-      dragStartPos.current = { x: e.clientX, y: e.clientY };
-
-      const handleMouseMove = (moveE: MouseEvent) => {
-        const dx = moveE.clientX - dragStartPos.current.x;
-        const dy = moveE.clientY - dragStartPos.current.y;
-        if (!isDragging.current && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
-          isDragging.current = true;
-          setDraggingPinId(annotation.id);
-        }
-
-        if (isDragging.current && containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect();
-          const x = moveE.clientX - rect.left;
-          const y = moveE.clientY - rect.top;
-          const xPct = Math.max(0, Math.min(100, (x / rect.width) * 100));
-          const yPct = Math.max(0, Math.min(100, (y / rect.height) * 100));
-          const xPx = Math.round((xPct / 100) * imageWidth);
-          const yPx = Math.round((yPct / 100) * imageHeight);
-
-          updateAnnotation(annotation.id, {
-            pin_x_pct: xPct,
-            pin_y_pct: yPct,
-            pin_x_px: xPx,
-            pin_y_px: yPx,
-          });
-        }
-      };
-
-      const handleMouseUp = () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        setDraggingPinId(null);
-
-        if (!isDragging.current) {
-          // It was a click, not a drag
-          setSelectedAnnotationId(isSelected ? null : annotation.id);
-        }
-        isDragging.current = false;
-      };
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      setSelectedAnnotationId(isSelected ? null : annotation.id);
     },
-    [
-      annotation.id,
-      containerRef,
-      imageWidth,
-      imageHeight,
-      isSelected,
-      isPinMode,
-      setDraggingPinId,
-      setSelectedAnnotationId,
-      updateAnnotation,
-    ]
+    [annotation.id, isSelected, setSelectedAnnotationId]
   );
 
   return (
     <div
-      className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 group ${
-        isPinMode ? "pointer-events-none" : "cursor-grab active:cursor-grabbing"
-      }`}
+      className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
       style={{
         left: `${annotation.pin_x_pct}%`,
         top: `${annotation.pin_y_pct}%`,
       }}
-      onMouseDown={handleMouseDown}
+      onClick={handleClick}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {/* Selection ring */}
       {isSelected && (

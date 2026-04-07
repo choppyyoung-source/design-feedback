@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useReviewStore } from "@/lib/store/review-store";
 import { AnnotationPin } from "./AnnotationPin";
 import { AnnotationForm } from "./AnnotationForm";
@@ -22,6 +22,8 @@ interface ReviewCanvasProps {
   imageWidth: number;
   imageHeight: number;
   authorName?: string;
+  isOwner?: boolean;
+  projectStatus?: import("@/types").ProjectStatus;
 }
 
 export function ReviewCanvas({
@@ -30,9 +32,13 @@ export function ReviewCanvas({
   imageWidth,
   imageHeight,
   authorName = "Anonymous",
+  isOwner,
+  projectStatus = "receiving",
 }: ReviewCanvasProps) {
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
   const {
     pageAnnotations,
     activePageId,
@@ -94,9 +100,11 @@ export function ReviewCanvas({
     [imageWidth, imageHeight]
   );
 
+  const canAddPin = projectStatus === "receiving";
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!isPinMode || draggingPinId) return;
+      if (!isPinMode || draggingPinId || !canAddPin) return;
       const coords = getCoords(e);
       if (!coords) return;
 
@@ -196,6 +204,7 @@ export function ReviewCanvas({
     [
       isPinMode,
       draggingPinId,
+      canAddPin,
       getCoords,
       imageWidth,
       imageHeight,
@@ -262,7 +271,7 @@ export function ReviewCanvas({
       setPendingPin(null);
       setPendingRegion(null);
       setFormPosition(null);
-      setIsPinMode(false);
+      // Keep pin mode always on
     },
     [
       pendingPin,
@@ -284,13 +293,100 @@ export function ReviewCanvas({
     setFormPosition(null);
   }, [setPendingPin, setPendingRegion]);
 
+  // Pan & zoom state
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isSpaceHeld, setIsSpaceHeld] = useState(false);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    if (!outer) return;
+
+    // Zoom with ctrl/cmd + scroll
+    const wheelHandler = (e: WheelEvent) => {
+      if (!outer.contains(e.target as Node)) return;
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setZoom((prev) => Math.min(3, Math.max(0.25, prev - e.deltaY * 0.002)));
+      }
+    };
+
+    // Space key for pan mode
+    const keyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      if (e.code === "Space" && !e.repeat) {
+        e.preventDefault();
+        setIsSpaceHeld(true);
+      }
+    };
+    const keyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setIsSpaceHeld(false);
+        isPanningRef.current = false;
+      }
+    };
+
+    // Pan drag
+    const mouseDown = (e: MouseEvent) => {
+      if (!outer.contains(e.target as Node)) return;
+      // Check space state via DOM - we read from the state ref
+      if (!outer.dataset.spaceHeld || outer.dataset.spaceHeld !== "1") return;
+      e.preventDefault();
+      e.stopPropagation();
+      isPanningRef.current = true;
+      const currentPanX = parseFloat(outer.dataset.panX || "0");
+      const currentPanY = parseFloat(outer.dataset.panY || "0");
+      panStartRef.current = { x: e.clientX, y: e.clientY, panX: currentPanX, panY: currentPanY };
+    };
+    const mouseMove = (e: MouseEvent) => {
+      if (!isPanningRef.current) return;
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      setPan({ x: panStartRef.current.panX + dx, y: panStartRef.current.panY + dy });
+    };
+    const mouseUp = () => {
+      isPanningRef.current = false;
+    };
+
+    document.addEventListener("wheel", wheelHandler, { passive: false });
+    document.addEventListener("keydown", keyDown);
+    document.addEventListener("keyup", keyUp);
+    document.addEventListener("mousedown", mouseDown, true);
+    document.addEventListener("mousemove", mouseMove);
+    document.addEventListener("mouseup", mouseUp);
+    return () => {
+      document.removeEventListener("wheel", wheelHandler);
+      document.removeEventListener("keydown", keyDown);
+      document.removeEventListener("keyup", keyUp);
+      document.removeEventListener("mousedown", mouseDown, true);
+      document.removeEventListener("mousemove", mouseMove);
+      document.removeEventListener("mouseup", mouseUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="relative w-full h-full overflow-auto bg-muted/30 flex items-center justify-center p-8">
+    <div
+      ref={outerRef}
+      className={`relative w-full h-full overflow-hidden bg-muted/30 ${
+        isSpaceHeld ? "cursor-grab" : ""
+      }`}
+      data-space-held={isSpaceHeld ? "1" : ""}
+      data-pan-x={pan.x}
+      data-pan-y={pan.y}
+    >
       <div
         ref={imageContainerRef}
         className={`relative inline-block select-none ${
-          isPinMode ? "cursor-crosshair" : "cursor-default"
+          isSpaceHeld ? "pointer-events-none" : (isPinMode && canAddPin) ? "cursor-crosshair" : "cursor-default"
         }`}
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: "0 0",
+          margin: "32px auto",
+        }}
         onMouseDown={handleMouseDown}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -298,7 +394,7 @@ export function ReviewCanvas({
           ref={imageRef}
           src={imageUrl}
           alt="Design for review"
-          className="block max-w-full max-h-[calc(100vh-10rem)] rounded-sm shadow-sm"
+          className="block max-w-full rounded-sm shadow-sm"
           draggable={false}
         />
 
@@ -387,6 +483,7 @@ export function ReviewCanvas({
                 ? getRegionKo(pendingPin.xPct, pendingPin.yPct)
                 : undefined
             }
+            isOwner={isOwner}
           />
         </div>
       )}

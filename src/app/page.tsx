@@ -19,6 +19,8 @@ import { ProfileViewModal } from "@/components/profile/ProfileViewModal";
 import { DesignerDirectory } from "@/components/profile/DesignerDirectory";
 import { ReviewGrid } from "@/components/dashboard/ReviewGrid";
 import { MyCommentsList } from "@/components/dashboard/MyCommentsList";
+import { StatusBanner } from "@/components/review/StatusBanner";
+import { BeforeAfterView } from "@/components/review/BeforeAfterView";
 import { useReviewStore } from "@/lib/store/review-store";
 import {
   saveProject,
@@ -33,6 +35,8 @@ import {
   Pin,
   ArrowLeft,
   LogOut,
+  CheckCircle2,
+  Upload,
 } from "lucide-react";
 
 interface User {
@@ -61,6 +65,7 @@ export default function Home() {
   const activePage = project?.pages.find((p) => p.id === activePageId);
 
   const [showExport, setShowExport] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showAddPage, setShowAddPage] = useState(false);
@@ -162,6 +167,7 @@ export default function Home() {
       setProject(newProject);
       setActivePageId(pageId);
       loadAllAnnotations({});
+      setIsPinMode(true);
       setShowUpload(false);
 
       // Show discovered links if any
@@ -236,6 +242,7 @@ export default function Home() {
         setProject(newProject);
         setActivePageId(pageId);
         loadAllAnnotations({});
+        setIsPinMode(true);
         setShowUpload(false);
       };
       img.src = previewUrl;
@@ -314,6 +321,7 @@ export default function Home() {
     ) => {
       setProject(p);
       loadAllAnnotations(annots);
+      setIsPinMode(true);
       if (p.pages.length > 0) {
         setActivePageId(p.pages[0].id);
       }
@@ -336,6 +344,59 @@ export default function Home() {
     (id: string) => store.removeAnnotation(id),
     [store]
   );
+
+  // Handle export used → transition to "applying"
+  const handleExportUsed = useCallback(
+    (selectedIds: string[]) => {
+      if (!project) return;
+      store.updateProjectStatus("applying", selectedIds);
+      // Save immediately
+      setTimeout(() => {
+        const updatedProject = useReviewStore.getState().project;
+        if (updatedProject && user) {
+          saveProject(updatedProject, useReviewStore.getState().pageAnnotations);
+          refreshProjects(user.email);
+        }
+      }, 0);
+      setShowExport(false);
+    },
+    [project, user, store, refreshProjects]
+  );
+
+  // Handle "반영 완료" → open before/after dialog
+  const handleMarkCompleted = useCallback(() => {
+    setShowComplete(true);
+  }, []);
+
+  // Actually complete with after image
+  const handleAfterImageSet = useCallback(
+    (imageDataUrl: string) => {
+      if (!project) return;
+      store.setCompletedImage(imageDataUrl);
+      store.updateProjectStatus("completed");
+      setTimeout(() => {
+        const updatedProject = useReviewStore.getState().project;
+        if (updatedProject && user) {
+          saveProject(updatedProject, useReviewStore.getState().pageAnnotations);
+          refreshProjects(user.email);
+        }
+      }, 0);
+    },
+    [project, user, store, refreshProjects]
+  );
+
+  // Handle "다시 피드백 받기" → reset to "receiving"
+  const handleResetToReceiving = useCallback(() => {
+    if (!project) return;
+    store.updateProjectStatus("receiving");
+    setTimeout(() => {
+      const updatedProject = useReviewStore.getState().project;
+      if (updatedProject && user) {
+        saveProject(updatedProject, useReviewStore.getState().pageAnnotations);
+        refreshProjects(user.email);
+      }
+    }, 0);
+  }, [project, user, store, refreshProjects]);
 
   // Build a Review object for ExportPreview (legacy compat)
   const reviewForExport: Review | null =
@@ -377,51 +438,53 @@ export default function Home() {
         },
         annotations: Object.values(sp.annotations).flat(),
         updatedAt: sp.updatedAt,
+        status: sp.project.status,
       }));
 
-      // My individual comments across all projects
+      // My individual comments across all projects (exclude my own questions on my own projects)
       const myComments = myProjects.flatMap((sp) =>
         Object.entries(sp.annotations).flatMap(([pageId, annotations]) =>
           (annotations as Annotation[])
-            .filter((a) => a.author_name === user.email)
+            .filter((a) => a.author_name === user.email && sp.project.created_by !== user.email)
             .map((a) => ({
               annotation: a,
               projectName: sp.project.name,
               pageName: sp.project.pages.find((p) => p.id === pageId)?.title ?? "",
               projectId: sp.project.id,
               imageUrl: sp.project.pages.find((p) => p.id === pageId)?.image_url ?? sp.project.pages[0]?.image_url,
+              ownerEmail: sp.project.created_by,
+              projectStatus: sp.project.status,
             }))
         )
       ).sort((a, b) => b.annotation.created_at.localeCompare(a.annotation.created_at));
 
       return (
-        <div className="flex-1 bg-muted/20 min-h-screen">
+        <div className="flex-1 bg-background min-h-screen">
           {/* Sticky header */}
-          <div className="sticky top-0 z-10 bg-white border-b border-border/60">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border/40">
             <div className="max-w-5xl mx-auto px-6">
-              <div className="flex items-center justify-between h-16">
-                <h1 className="text-xl font-bold">Design Feedback</h1>
+              <div className="flex items-center justify-between h-14">
+                <h1 className="text-base font-bold tracking-tight cursor-pointer" onClick={() => window.location.reload()}>Design Feedback</h1>
                 <button
-                  className="text-xs px-3 py-1.5 rounded-lg bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  className="text-[11px] px-2.5 py-1 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors"
                   onClick={handleLogout}
                 >
                   로그아웃
                 </button>
               </div>
               {/* Tabs */}
-              <div className="flex items-center gap-7 -mb-px mt-2">
+              <div className="flex items-center gap-1 -mb-px">
                 {([
-                  { key: "requested", label: "요청한 피드백" },
-                  { key: "commented", label: "내가 남긴 피드백" },
-                  { key: "directory", label: "디자이너 찾기" },
+                  { key: "requested", label: "피드백 요청하기" },
+                  { key: "commented", label: "피드백 남기기" },
                   { key: "profile", label: "내 프로필" },
                 ] as const).map((tab) => (
                   <button
                     key={tab.key}
-                    className={`pb-3 text-[15px] font-medium border-b-2 transition-colors ${
+                    className={`px-3 py-2 text-sm font-medium rounded-t-lg transition-colors ${
                       dashboardTab === tab.key
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
+                        ? "text-foreground bg-muted/40"
+                        : "text-muted-foreground/60 hover:text-foreground hover:bg-muted/20"
                     }`}
                     onClick={() => { setDashboardTab(tab.key); setViewProfileEmail(null); }}
                   >
@@ -436,17 +499,29 @@ export default function Home() {
           <div className="max-w-5xl mx-auto px-6 py-6">
             {/* Tab content */}
             {dashboardTab === "requested" && (
-              <ReviewGrid
-                reviews={reviewItems}
-                onSelect={(r) => {
-                  const item = myProjects.find((sp) => sp.project.id === r.id);
-                  if (item) handleSelectProject(item.project, item.annotations);
-                }}
-                onDelete={handleDeleteProject}
-                onNew={() => setShowUpload(true)}
-                emptyMessage="아직 요청한 리뷰가 없어요"
-                emptyDescription="디자인 리뷰를 받아보세요"
-              />
+              <div className="space-y-4">
+                {/* Designer directory banner */}
+                <button
+                  className="inline-flex items-center gap-2.5 px-1.5 py-1.5 pr-5 rounded-full bg-gradient-to-r from-white via-white/90 to-white/70 backdrop-blur-xl border border-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all text-left group hover:-translate-y-px"
+                  onClick={() => { setDashboardTab("directory" as never); setViewProfileEmail(null); }}
+                >
+                  <span className="px-3 py-1 rounded-full text-white text-xs font-semibold bg-[length:200%_200%] animate-[gradient-shift_3s_ease_infinite] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">디자이너 찾기</span>
+                  <span className="text-[13px] text-muted-foreground">피드백 받고싶은 디자이너를 찾아보세요</span>
+                  <span className="text-sm text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all ml-1">→</span>
+                </button>
+
+                <ReviewGrid
+                  reviews={reviewItems}
+                  onSelect={(r) => {
+                    const item = myProjects.find((sp) => sp.project.id === r.id);
+                    if (item) handleSelectProject(item.project, item.annotations);
+                  }}
+                  onDelete={handleDeleteProject}
+                  onNew={() => setShowUpload(true)}
+                  emptyMessage="아직 요청한 리뷰가 없어요"
+                  emptyDescription="디자인 리뷰를 받아보세요"
+                />
+              </div>
             )}
 
             {dashboardTab === "commented" && (
@@ -462,14 +537,15 @@ export default function Home() {
 
             {dashboardTab === "explore" && (
               <div>
-                <button
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/60 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mb-5"
-                  onClick={() => setDashboardTab("commented")}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  뒤로가기
-                </button>
-                <h2 className="text-lg font-semibold mb-4">피드백이 필요한 프로젝트</h2>
+                <div className="flex items-center gap-2.5 mb-5">
+                  <button
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+                    onClick={() => setDashboardTab("commented")}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <h2 className="text-[15px] font-semibold">피드백이 필요한 프로젝트</h2>
+                </div>
                 <ReviewGrid
                   reviews={reviewItems}
                   onSelect={(r) => {
@@ -491,28 +567,141 @@ export default function Home() {
               <ProfileSection
                 email={user.email}
                 currentUserEmail={user.email}
+                contribution={(() => {
+                  let totalComments = 0;
+                  let appliedComments = 0;
+                  const feedbackItems: { id: string; comment: string; severity: string; projectName: string; createdAt: string; isApplied: boolean }[] = [];
+                  const feedbackProjectMap = new Map<string, { id: string; name: string; feedbackCount: number; imageUrl?: string }>();
+                  const requestedProjects: { id: string; name: string; feedbackCount: number; imageUrl?: string }[] = [];
+                  myProjects.forEach((sp) => {
+                    const isOwner = sp.project.created_by === user.email;
+                    const allAnnotations = Object.values(sp.annotations).flat() as Annotation[];
+                    if (isOwner) {
+                      // My own project — count as "requested" project
+                      const othersCount = allAnnotations.filter((a) => a.author_name !== user.email).length;
+                      const firstPage = sp.project.pages?.[0];
+                      requestedProjects.push({
+                        id: sp.project.id,
+                        name: sp.project.name,
+                        feedbackCount: othersCount,
+                        imageUrl: firstPage?.image_url,
+                      });
+                    } else {
+                      // Others' project — count my feedback
+                      const myAnns = allAnnotations.filter((a) => a.author_name === user.email);
+                      const applied = sp.project.appliedCommentIds || [];
+                      if (myAnns.length > 0) {
+                        const firstPage = sp.project.pages?.[0];
+                        feedbackProjectMap.set(sp.project.id, {
+                          id: sp.project.id,
+                          name: sp.project.name,
+                          feedbackCount: myAnns.length,
+                          imageUrl: firstPage?.image_url,
+                        });
+                      }
+                      myAnns.forEach((a) => {
+                        const isApplied = applied.includes(a.id);
+                        feedbackItems.push({
+                          id: a.id,
+                          comment: a.comment,
+                          severity: a.severity,
+                          projectName: sp.project.name,
+                          createdAt: a.created_at,
+                          isApplied,
+                        });
+                        totalComments++;
+                        if (isApplied) appliedComments++;
+                      });
+                    }
+                  });
+                  return {
+                    totalComments,
+                    appliedComments,
+                    projectCount: feedbackProjectMap.size + requestedProjects.length,
+                    feedbackItems,
+                    feedbackProjects: Array.from(feedbackProjectMap.values()),
+                    requestedProjects,
+                  };
+                })()}
               />
             )}
 
             {dashboardTab === "directory" && !viewProfileEmail && (
               <DesignerDirectory
                 onSelectProfile={(email) => setViewProfileEmail(email)}
+                onBack={() => setDashboardTab("requested")}
                 currentUserEmail={user.email}
               />
             )}
 
             {dashboardTab === "directory" && viewProfileEmail && (
               <div>
-                <button
-                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4"
-                  onClick={() => setViewProfileEmail(null)}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  디자이너 목록으로
-                </button>
+                <div className="flex items-center gap-2.5 mb-5">
+                  <button
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+                    onClick={() => setViewProfileEmail(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-[13px] text-muted-foreground/50">디자이너 목록</span>
+                </div>
                 <ProfileSection
                   email={viewProfileEmail}
                   currentUserEmail={user.email}
+                  contribution={(() => {
+                    let totalComments = 0;
+                    let appliedComments = 0;
+                    const feedbackItems: { id: string; comment: string; severity: string; projectName: string; createdAt: string; isApplied: boolean }[] = [];
+                    const feedbackProjectMap = new Map<string, { id: string; name: string; feedbackCount: number; imageUrl?: string }>();
+                    const requestedProjects: { id: string; name: string; feedbackCount: number; imageUrl?: string }[] = [];
+                    myProjects.forEach((sp) => {
+                      const isOwner = sp.project.created_by === viewProfileEmail;
+                      const allAnnotations = Object.values(sp.annotations).flat() as Annotation[];
+                      if (isOwner) {
+                        const othersCount = allAnnotations.filter((a) => a.author_name !== viewProfileEmail).length;
+                        const firstPage = sp.project.pages?.[0];
+                        requestedProjects.push({
+                          id: sp.project.id,
+                          name: sp.project.name,
+                          feedbackCount: othersCount,
+                          imageUrl: firstPage?.image_url,
+                        });
+                      } else {
+                        const anns = allAnnotations.filter((a) => a.author_name === viewProfileEmail);
+                        const applied = sp.project.appliedCommentIds || [];
+                        if (anns.length > 0) {
+                          const firstPage = sp.project.pages?.[0];
+                          feedbackProjectMap.set(sp.project.id, {
+                            id: sp.project.id,
+                            name: sp.project.name,
+                            feedbackCount: anns.length,
+                            imageUrl: firstPage?.image_url,
+                          });
+                        }
+                        anns.forEach((a) => {
+                          const isApplied = applied.includes(a.id);
+                          feedbackItems.push({
+                            id: a.id,
+                            comment: a.comment,
+                            severity: a.severity,
+                            projectName: sp.project.name,
+                            createdAt: a.created_at,
+                            isApplied,
+                          });
+                          totalComments++;
+                          if (isApplied) appliedComments++;
+                        });
+                      }
+                    });
+                    return {
+                      totalComments,
+                      appliedComments,
+                      projectCount: feedbackProjectMap.size + requestedProjects.length,
+                      feedbackItems,
+                      feedbackProjects: Array.from(feedbackProjectMap.values()),
+                      requestedProjects,
+                    };
+                  })()}
                 />
               </div>
             )}
@@ -525,18 +714,14 @@ export default function Home() {
 
     // Upload screen
     return (
-      <div className="flex-1 flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/30">
-        <div className="w-full max-w-lg space-y-8">
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              AI-ready design feedback
-            </div>
-            <h1 className="text-4xl font-extrabold tracking-tight">
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-extrabold tracking-tight">
               Design Feedback
             </h1>
-            <p className="text-muted-foreground text-base">
-              내 제품을 올리고, 디자이너 코멘트를 받고, AI용으로 내보내세요.
+            <p className="text-[14px] text-muted-foreground/60">
+              진짜 디자이너의 피드백을, AI에서 바로 쓸 수 있게
             </p>
           </div>
           <ImageUploader
@@ -544,22 +729,28 @@ export default function Home() {
             onUrlScreenshot={handleUrlScreenshot}
           />
           {user ? (
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-[12px] text-muted-foreground/50">
               <span>{user.email}로 로그인됨</span>
               <button
-                className="text-primary hover:underline"
+                className="text-foreground/60 hover:text-foreground transition-colors underline underline-offset-2"
                 onClick={handleLogout}
               >
                 로그아웃
               </button>
             </div>
           ) : (
-            <div className="text-center">
-              <button
-                className="text-xs text-primary hover:underline"
+            <div className="flex flex-col items-center gap-3">
+              <Button
+                className="w-full h-11 bg-foreground hover:bg-foreground/90 text-background font-semibold"
                 onClick={() => setShowAuth(true)}
               >
-                이미 계정이 있나요? 로그인
+                시작하기
+              </Button>
+              <button
+                className="text-[12px] text-muted-foreground/50 hover:text-foreground transition-colors"
+                onClick={() => setShowAuth(true)}
+              >
+                이미 계정이 있나요? <span className="underline underline-offset-2">로그인</span>
               </button>
             </div>
           )}
@@ -569,6 +760,7 @@ export default function Home() {
           onOpenChange={setShowAuth}
           onAuth={handleAuth}
         />
+
       </div>
     );
   }
@@ -577,76 +769,72 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-5 py-2.5 border-b bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-background">
+        <div className="flex items-center gap-2">
+          <button
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             onClick={handleSaveAndGoBack}
           >
             <ArrowLeft className="h-4 w-4" />
-          </Button>
+          </button>
           <h1 className="text-sm font-semibold truncate max-w-[200px]">
             {project.name}
           </h1>
           {activePage && (
             <>
               <span className="text-muted-foreground/40">/</span>
-              <span className="text-xs text-muted-foreground">
+              <a
+                href={activePage.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {activePage.title}
-              </span>
+              </a>
             </>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant={isPinMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              if (!user) {
-                setShowAuth(true);
-                return;
-              }
-              setIsPinMode(!isPinMode);
-            }}
-          >
-            {isPinMode ? (
-              <MousePointerClick className="h-4 w-4 mr-1.5" />
-            ) : (
-              <Pin className="h-4 w-4 mr-1.5" />
-            )}
-            {isPinMode ? "핀 찍는 중..." : "핀 추가"}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowExport(true)}
-            disabled={annotations.length === 0}
-          >
-            <FileOutput className="h-4 w-4 mr-1.5" />
-            AI용 내보내기
-          </Button>
-
-          {user && (
-            <div className="flex items-center gap-1.5 ml-2 pl-2 border-l">
-              <button
-                className="text-xs text-muted-foreground truncate max-w-[120px] hover:text-primary hover:underline"
-                onClick={() => { handleSaveAndGoBack(); setTimeout(() => setDashboardTab("profile"), 100); }}
-              >
-                {user.email}
-              </button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-3 w-3" />
-              </Button>
-            </div>
+          {(!project.status || project.status === "receiving") && (
+            <Button
+              size="sm"
+              onClick={() => setShowExport(true)}
+              disabled={annotations.length === 0}
+              className="bg-foreground text-background hover:bg-foreground/90"
+            >
+              <FileOutput className="h-4 w-4 mr-1.5" />
+              AI용 내보내기
+            </Button>
+          )}
+          {project.status === "applying" && user?.email === project.created_by && (
+            <Button
+              size="sm"
+              onClick={handleMarkCompleted}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1.5" />
+              반영 완료
+            </Button>
+          )}
+          {project.status === "completed" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowComplete(true)}
+            >
+              Before / After 보기
+            </Button>
+          )}
+          {project.status === "completed" && user?.email === project.created_by && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetToReceiving}
+            >
+              다시 피드백 받기
+            </Button>
           )}
         </div>
       </div>
@@ -674,16 +862,25 @@ export default function Home() {
               imageWidth={activePage.image_width}
               imageHeight={activePage.image_height}
               authorName={user?.email ?? "Anonymous"}
+              isOwner={user?.email === project.created_by}
+              projectStatus={project.status ?? "receiving"}
             />
           )}
         </div>
 
         {/* Comment sidebar */}
         <div className="w-80 border-l bg-background flex flex-col">
-          <div className="px-3 py-2 border-b">
-            <h2 className="text-sm font-semibold">
-              코멘트 ({annotations.length})
-            </h2>
+          <div className="px-4 py-3 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[15px] font-semibold">피드백</h2>
+              <span className="text-[12px] text-muted-foreground/50">{annotations.length}</span>
+            </div>
+            {project.status === "applying" && (
+              <p className="text-[12px] text-amber-600 mt-1">피드백 적용 중 · 새 피드백 추가 불가</p>
+            )}
+            {project.status === "completed" && (
+              <p className="text-[12px] text-emerald-600 mt-1">업데이트 완료</p>
+            )}
           </div>
           <div className="flex-1 overflow-hidden">
             <AnnotationPanel
@@ -692,6 +889,14 @@ export default function Home() {
               currentUserEmail={user?.email}
               ownerEmail={project.created_by}
               onProfileClick={(email) => setViewProfileEmail(email)}
+              projectDescription={activePage?.description}
+              onDescriptionChange={(desc) => {
+                if (!activePage) return;
+                const updatedPages = project.pages.map((p) =>
+                  p.id === activePage.id ? { ...p, description: desc } : p
+                );
+                setProject({ ...project, pages: updatedPages });
+              }}
             />
           </div>
         </div>
@@ -700,19 +905,44 @@ export default function Home() {
       {/* Export Dialog */}
       {reviewForExport && (
         <Dialog open={showExport} onOpenChange={setShowExport}>
-          <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
-            <DialogHeader>
+          <DialogContent className="sm:!max-w-4xl !max-w-[90vw] h-[80vh] flex flex-col !p-0 !gap-0 overflow-hidden">
+            <DialogHeader className="px-5 py-3 border-b">
               <DialogTitle>AI용 내보내기</DialogTitle>
             </DialogHeader>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden min-h-0">
               <ExportPreview
                 review={reviewForExport}
-                annotations={annotations}
+                annotations={annotations.filter((a) => a.author_name !== project.created_by)}
+                onExportUsed={handleExportUsed}
               />
             </div>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Before/After Dialog */}
+      <Dialog open={showComplete} onOpenChange={setShowComplete}>
+        <DialogContent className="sm:!max-w-2xl !max-w-[90vw] !p-0 !gap-0 overflow-hidden">
+          <DialogHeader className="px-5 py-3 border-b">
+            <DialogTitle>
+              {project.completedImageUrl ? "Before / After" : "반영 완료"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[75vh]">
+            <BeforeAfterView
+              beforeImageUrl={activePage?.image_url ?? project.pages[0]?.image_url ?? ""}
+              afterImageUrl={project.completedImageUrl}
+              projectName={project.name}
+              onCaptureAfter={(img) => {
+                handleAfterImageSet(img);
+              }}
+              onUploadAfter={(img) => {
+                handleAfterImageSet(img);
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Page Dialog */}
       <Dialog open={showAddPage} onOpenChange={setShowAddPage}>

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Annotation, Project, RegionBounds, ReviewPage } from "@/types";
+import type { Annotation, Project, ProjectStatus, RegionBounds, ReviewPage } from "@/types";
 
 interface ReviewStore {
   // Project
@@ -18,6 +18,10 @@ interface ReviewStore {
   updateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   removeAnnotation: (id: string) => void;
   addReply: (annotationId: string, reply: import("@/types").AnnotationReply) => void;
+
+  // Status
+  updateProjectStatus: (status: ProjectStatus, appliedIds?: string[]) => void;
+  setCompletedImage: (url: string) => void;
 
   // UI state
   isPinMode: boolean;
@@ -44,7 +48,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     set({
       activePageId: id,
       selectedAnnotationId: null,
-      isPinMode: false,
+      isPinMode: true,
       pendingPin: null,
       pendingRegion: null,
     }),
@@ -130,6 +134,25 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
           ),
         },
       };
+    }),
+
+  updateProjectStatus: (status, appliedIds) =>
+    set((s) => {
+      if (!s.project) return s;
+      return {
+        project: {
+          ...s.project,
+          status,
+          ...(appliedIds ? { appliedCommentIds: [...(s.project.appliedCommentIds || []), ...appliedIds] } : {}),
+          ...(status === "completed" ? { completedAt: new Date().toISOString() } : {}),
+          updated_at: new Date().toISOString(),
+        },
+      };
+    }),
+  setCompletedImage: (url) =>
+    set((s) => {
+      if (!s.project) return s;
+      return { project: { ...s.project, completedImageUrl: url } };
     }),
 
   isPinMode: false,

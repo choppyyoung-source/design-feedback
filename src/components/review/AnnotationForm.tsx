@@ -25,11 +25,12 @@ interface AnnotationFormProps {
   }) => void;
   onCancel: () => void;
   defaultAreaLabel?: string;
+  isOwner?: boolean;
 }
 
-export function AnnotationForm({ onSubmit, onCancel, defaultAreaLabel }: AnnotationFormProps) {
+export function AnnotationForm({ onSubmit, onCancel, defaultAreaLabel, isOwner }: AnnotationFormProps) {
   const [comment, setComment] = useState("");
-  const [severity, setSeverity] = useState<AnnotationSeverity>("suggestion");
+  const [severity, setSeverity] = useState<AnnotationSeverity>(isOwner ? "should-fix" : "suggestion");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,19 +38,55 @@ export function AnnotationForm({ onSubmit, onCancel, defaultAreaLabel }: Annotat
     onSubmit({
       comment: comment.trim(),
       category: "other",
-      severity,
+      severity: isOwner ? "should-fix" : severity,
       areaLabel: defaultAreaLabel ?? "",
       changeSpec: null,
       authorName: "Anonymous",
     });
   };
 
+  if (isOwner) {
+    return (
+      <Card className="p-4 shadow-2xl w-[300px] border-border/60 backdrop-blur-sm">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">이 부분이 궁금해요</h3>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 rounded-full"
+              onClick={onCancel}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <Textarea
+            placeholder="어떤 점이 고민인지 적어주세요"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="text-sm min-h-[72px] resize-none"
+            autoFocus
+          />
+          <Button
+            type="submit"
+            size="sm"
+            className="w-full"
+            disabled={!comment.trim()}
+          >
+            질문 남기기
+          </Button>
+        </form>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-5 shadow-2xl w-[340px] border-border/60 backdrop-blur-sm">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">코멘트 추가</h3>
+          <h3 className="font-semibold">피드백 추가</h3>
           <Button
             type="button"
             variant="ghost"

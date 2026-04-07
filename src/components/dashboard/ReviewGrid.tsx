@@ -1,13 +1,19 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
-import { Trash2, MessageCircle, Bell } from "lucide-react";
-import type { Annotation, Review } from "@/types";
+import { Trash2, Bell, Plus } from "lucide-react";
+import type { Annotation, ProjectStatus, Review } from "@/types";
 import { getUnseenCount } from "@/lib/notifications";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ReviewItem = { review: Review; annotations: Annotation[]; updatedAt: string; [key: string]: any };
+type ReviewItem = { review: Review; annotations: Annotation[]; updatedAt: string; status?: ProjectStatus; [key: string]: any };
+
+const STATUS_BADGE: Record<ProjectStatus, { label: string; bg: string; text: string; dot: string }> = {
+  receiving: { label: "피드백 받는 중", bg: "bg-blue-50 border border-blue-200/60", text: "text-blue-600", dot: "bg-blue-500 animate-pulse" },
+  applying: { label: "적용 중", bg: "bg-amber-50 border border-amber-200/60", text: "text-amber-600", dot: "bg-amber-500" },
+  completed: { label: "완료", bg: "bg-emerald-50 border border-emerald-200/60", text: "text-emerald-600", dot: "bg-emerald-500" },
+};
 
 interface ReviewGridProps {
   reviews: ReviewItem[];
@@ -34,44 +40,86 @@ export function ReviewGrid({
 }: ReviewGridProps) {
   if (reviews.length === 0) {
     return (
-      <div className="space-y-5">
+      <div>
         {!hideNewButton && (
-        <div className="flex justify-end">
-          <Button size="sm" onClick={onNew}>
-            디자인 리뷰 받기
-          </Button>
-        </div>
-      )}
-        <Card className="p-16 text-center">
-          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-4">
-            <span className="text-xl">📋</span>
+          <div
+            className="relative cursor-pointer group/new rounded-2xl"
+            onClick={onNew}
+          >
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" fill="none">
+              <rect
+                className="dash-border"
+                x="1" y="1"
+                rx="16"
+                strokeWidth="1"
+                strokeDasharray="5 4"
+                style={{ width: "calc(100% - 2px)", height: "calc(100% - 2px)" }}
+              />
+            </svg>
+            <div className="p-14 text-center bg-card rounded-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                <Plus className="h-5 w-5 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm font-semibold mb-0.5">새 링크 올리기</p>
+              <p className="text-xs text-muted-foreground/60">디자인 리뷰를 받아보세요</p>
+            </div>
           </div>
-          <p className="text-sm font-medium mb-1">{emptyMessage}</p>
-          <p className="text-xs text-muted-foreground">{emptyDescription}</p>
-        </Card>
+        )}
+        {hideNewButton && (
+          <div>
+            <div className="p-14 text-center bg-card border border-border/70 rounded-2xl">
+              <div className="w-12 h-12 rounded-xl bg-muted/40 flex items-center justify-center mx-auto mb-3">
+                <span className="text-lg">📋</span>
+              </div>
+              <p className="text-sm font-medium mb-0.5">{emptyMessage}</p>
+              <p className="text-xs text-muted-foreground/60">{emptyDescription}</p>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* New link card */}
       {!hideNewButton && (
-        <div className="flex justify-end">
-          <Button size="sm" onClick={onNew}>
-            디자인 리뷰 받기
-          </Button>
+        <div
+          className="h-full relative cursor-pointer group/new rounded-2xl"
+          onClick={onNew}
+        >
+          {/* Animated dashed border via SVG */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" fill="none">
+            <rect
+              className="dash-border"
+              x="1" y="1"
+              rx="16"
+              strokeWidth="1"
+              strokeDasharray="5 4"
+              style={{ width: "calc(100% - 2px)", height: "calc(100% - 2px)" }}
+            />
+          </svg>
+          <div className="h-full bg-card rounded-2xl flex flex-col items-center justify-center gap-1.5 overflow-hidden">
+            <div className="w-9 h-9 rounded-xl bg-muted/40 flex items-center justify-center mb-0.5">
+              <Plus className="h-4 w-4 text-muted-foreground/50" />
+            </div>
+            <p className="text-sm font-semibold">새 링크 올리기</p>
+            <p className="text-[11px] text-muted-foreground/50">피드백 받을 페이지를 추가하세요</p>
+          </div>
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {reviews.map(({ review, annotations, updatedAt }) => {
-          const unseen = getUnseenCount(review.id, annotations.length);
-          return (
-            <Card
-              key={review.id}
-              className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all border-border/50 relative group"
+      {reviews.map(({ review, annotations, updatedAt, status }) => {
+        const unseen = getUnseenCount(review.id, annotations.length);
+        const effectiveStatus = status ?? "receiving";
+        const statusInfo = STATUS_BADGE[effectiveStatus];
+        return (
+          <div key={review.id}>
+            <div
+              className="overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all border border-border/70 relative group bg-card rounded-2xl"
               onClick={() => onSelect(review, annotations)}
             >
-              <div className="aspect-video bg-muted/50 relative overflow-hidden">
+              {/* Image */}
+              <div className="aspect-video bg-muted/30 relative overflow-hidden flex items-start justify-center">
                 {review.image_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -90,7 +138,7 @@ export function ReviewGrid({
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white"
+                    className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white shadow-sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       onDelete(review.id);
@@ -100,30 +148,32 @@ export function ReviewGrid({
                   </Button>
                 )}
               </div>
-              <div className="p-4">
+
+              {/* Info */}
+              <div className="px-4 py-3">
                 {showAuthor && review.created_by && (
-                  <p className="text-[11px] text-muted-foreground mb-1">{review.created_by}</p>
+                  <p className="text-[12px] text-muted-foreground/50 mb-0.5">{review.created_by}</p>
                 )}
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold truncate flex-1">{review.title}</p>
+                  <p className="text-[15px] font-semibold truncate flex-1">{review.title}</p>
                   {unseen > 0 && (
-                    <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500" />
+                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" />
                   )}
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MessageCircle className="h-3 w-3" />
-                    {annotations.length}개 코멘트
+                <div className="flex items-center gap-2 mt-2">
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${statusInfo.bg} ${statusInfo.text}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+                    {statusInfo.label}
                   </div>
-                  <span className="text-[10px] text-muted-foreground/60">
-                    {formatDate(updatedAt)}
+                  <span className="text-[11px] text-muted-foreground/40 ml-auto">
+                    {annotations.length}개 피드백 · {formatDate(updatedAt)}
                   </span>
                 </div>
               </div>
-            </Card>
-          );
-        })}
-      </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
