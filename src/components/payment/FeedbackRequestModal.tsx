@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,22 +8,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, Zap, MessageCircle, Send } from "lucide-react";
+import { Check, Zap, MessageCircle, Send, AlertCircle } from "lucide-react";
 import { getEmoji } from "@/lib/avatar";
 import { getProfile, SPECIALTY_LABELS } from "@/lib/profiles";
+import { useT } from "@/lib/i18n";
 
-const PLANS = [
+interface PlanDef {
+  id: string;
+  name: string;
+  price: string;
+  priceLabel: string | null;
+  descriptionKey: string;
+  icon: typeof Send;
+  featureKeys: string[];
+  popular: boolean;
+}
+
+const PLANS: PlanDef[] = [
   {
     id: "free",
     name: "Free",
     price: "Free",
     priceLabel: null,
-    description: "피드백 요청만 보내기",
+    descriptionKey: "payment.freeDesc",
     icon: Send,
-    features: [
-      "피드백 요청 전송",
-      "응답 보장 없음",
-    ],
+    featureKeys: ["payment.freeFeat1", "payment.freeFeat2"],
     popular: false,
   },
   {
@@ -31,12 +40,9 @@ const PLANS = [
     name: "Basic",
     price: "$9",
     priceLabel: "$9",
-    description: "핵심 피드백",
+    descriptionKey: "payment.basicDesc",
     icon: MessageCircle,
-    features: [
-      "피드백 5개",
-      "48시간 내 응답",
-    ],
+    featureKeys: ["payment.basicFeat1", "payment.basicFeat2"],
     popular: false,
   },
   {
@@ -44,13 +50,9 @@ const PLANS = [
     name: "Standard",
     price: "$19",
     priceLabel: "$19",
-    description: "상세 피드백",
+    descriptionKey: "payment.standardDesc",
     icon: Zap,
-    features: [
-      "피드백 15개",
-      "24시간 내 응답",
-      "수정 제안 포함",
-    ],
+    featureKeys: ["payment.standardFeat1", "payment.standardFeat2", "payment.standardFeat3"],
     popular: true,
   },
 ];
@@ -68,73 +70,114 @@ export function FeedbackRequestModal({
   designerEmail,
   currentUserEmail,
 }: FeedbackRequestModalProps) {
+  const t = useT();
   const [selectedPlan, setSelectedPlan] = useState("free");
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const profile = typeof window !== "undefined" ? getProfile(designerEmail) : null;
+  const [profile, setProfile] = useState<Awaited<ReturnType<typeof getProfile>>>(null);
+
+  useEffect(() => {
+    if (open && designerEmail) getProfile(designerEmail).then(setProfile);
+  }, [open, designerEmail]);
+
+  const designerHasPayout = !!profile?.payoutMethod && (!!profile?.paypalEmail || !!profile?.bankInfo);
 
   const handleSubmit = async () => {
     if (selectedPlan === "free") {
       // Send email via mailto
       const designerName = profile?.name ?? designerEmail;
-      const subject = encodeURIComponent(`[Design Feedback] ${currentUserEmail ?? "Someone"} is requesting your feedback`);
+      const subject = encodeURIComponent(
+        `[Design Feedback] ${currentUserEmail ?? "Someone"} is requesting your feedback`
+      );
       const body = encodeURIComponent(
         `Hi ${designerName},\n\n${currentUserEmail ?? "A user"} would like to get your design feedback on their project.\n\nPlease check it out on Design Feedback.\n\nThanks!`
       );
-      window.open(`mailto:${designerEmail}?subject=${subject}&body=${body}`, "_blank");
+      window.open(
+        `mailto:${designerEmail}?subject=${subject}&body=${body}`,
+        "_blank"
+      );
       setSent(true);
       return;
     }
 
-    // Paid plans - Stripe checkout
+    // Paid plans — LemonSqueezy checkout
+    if (!designerHasPayout) {
+      return; // Should not happen due to UI guard
+    }
+
     setIsLoading(true);
-    // TODO: Stripe Checkout integration
-    // const res = await fetch("/api/checkout", {
-    //   method: "POST",
-    //   body: JSON.stringify({ planId: selectedPlan, designerEmail }),
-    // });
-    // const { url } = await res.json();
-    // window.location.href = url;
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/lemonsqueezy/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: selectedPlan,
+          designerEmail,
+          customerEmail: currentUserEmail,
+          returnUrl: window.location.origin,
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || t("payment.checkoutError"));
+        setIsLoading(false);
+      }
+    } catch {
+      alert(t("payment.paymentError"));
       setIsLoading(false);
-      alert("Stripe 결제 연동 준비 중입니다.");
-    }, 500);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] p-0 gap-0 rounded-2xl overflow-hidden">
+      <DialogContent className="sm:max-w-[540px] p-0 gap-0 rounded-md overflow-hidden">
         <DialogHeader className="p-5 pb-0">
-          <DialogTitle className="text-[15px] font-bold">피드백 요청하기</DialogTitle>
+          <DialogTitle className="text-[15px] font-bold">
+            {t("payment.requestFeedback")}
+          </DialogTitle>
         </DialogHeader>
 
         {/* Designer info */}
         {profile && (
-          <div className="mx-5 mt-3 flex items-center gap-3 p-3 rounded-xl bg-muted/30">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-lg flex-shrink-0 border border-border/40">
+          <div className="mx-5 mt-3 flex items-center gap-3 p-3 rounded-md bg-[#f6f5f4]">
+            <div className="w-10 h-10 rounded-md bg-white flex items-center justify-center text-lg flex-shrink-0 border border-[rgba(0,0,0,0.08)]">
               {getEmoji(designerEmail)}
             </div>
             <div className="min-w-0">
               <p className="text-[13px] font-semibold">{profile.name}</p>
-              <p className="text-[11px] text-primary/60 font-medium">{SPECIALTY_LABELS[profile.specialty]}</p>
+              <p className="text-[13px] text-primary/60 font-medium">
+                {SPECIALTY_LABELS[profile.specialty]}
+              </p>
             </div>
+            {designerHasPayout && (
+              <span className="ml-auto text-[13px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 font-semibold">
+                {t("payment.paymentAvailable")}
+              </span>
+            )}
           </div>
         )}
 
         {/* Sent confirmation */}
         {sent && (
           <div className="p-8 text-center">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-md bg-emerald-50 flex items-center justify-center mx-auto mb-3">
               <Check className="h-5 w-5 text-emerald-600" />
             </div>
-            <p className="text-[15px] font-semibold mb-1">요청을 보냈어요</p>
-            <p className="text-[12px] text-muted-foreground/50">디자이너가 확인하면 피드백을 시작할 거예요</p>
+            <p className="text-[15px] font-semibold mb-1">{t("payment.sent")}</p>
+            <p className="text-sm text-[#a39e98]">
+              {t("payment.sentDesc")}
+            </p>
             <Button
               variant="ghost"
-              className="mt-4 text-[12px]"
-              onClick={() => { setSent(false); onOpenChange(false); }}
+              className="mt-4 text-sm"
+              onClick={() => {
+                setSent(false);
+                onOpenChange(false);
+              }}
             >
-              닫기
+              {t("payment.close")}
             </Button>
           </div>
         )}
@@ -146,38 +189,59 @@ export function FeedbackRequestModal({
               {PLANS.map((plan) => {
                 const isSelected = selectedPlan === plan.id;
                 const Icon = plan.icon;
+                const isPaid = plan.id !== "free";
+                const disabled = isPaid && !designerHasPayout;
+
                 return (
                   <button
                     key={plan.id}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${
-                      isSelected
-                        ? "border-foreground/20 bg-muted/20 ring-1 ring-foreground/10"
-                        : "border-border/50 hover:border-border/80 hover:bg-muted/10"
+                    className={`w-full text-left p-4 rounded-md border transition-all ${
+                      disabled
+                        ? "border-[rgba(0,0,0,0.08)] opacity-50 cursor-not-allowed"
+                        : isSelected
+                          ? "border-foreground/20 bg-[#f6f5f4] ring-1 ring-foreground/10"
+                          : "border-[rgba(0,0,0,0.1)] hover:border-[rgba(0,0,0,0.1)] hover:bg-[#f6f5f4]/50"
                     }`}
-                    onClick={() => setSelectedPlan(plan.id)}
+                    onClick={() => !disabled && setSelectedPlan(plan.id)}
+                    disabled={disabled}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground/50"
-                      }`}>
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          isSelected
+                            ? "bg-[rgba(0,0,0,0.95)] text-background"
+                            : "bg-[#f6f5f4] text-[#a39e98]"
+                        }`}
+                      >
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-semibold">{plan.name}</span>
+                          <span className="text-[13px] font-semibold">
+                            {plan.name}
+                          </span>
                           {plan.popular && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-foreground text-background font-semibold uppercase tracking-wider">
+                            <span className="text-[13px] px-1.5 py-0.5 rounded-full bg-[rgba(0,0,0,0.95)] text-background font-semibold uppercase tracking-wider">
                               popular
                             </span>
                           )}
-                          <span className={`text-[15px] font-bold ml-auto ${plan.id === "free" ? "text-muted-foreground/40" : ""}`}>{plan.price}</span>
+                          <span
+                            className={`text-[15px] font-bold ml-auto ${plan.id === "free" ? "text-[#a39e98]" : ""}`}
+                          >
+                            {plan.price}
+                          </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground/50 mt-0.5">{plan.description}</p>
+                        <p className="text-[13px] text-[#a39e98] mt-0.5">
+                          {t(plan.descriptionKey)}
+                        </p>
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
-                          {plan.features.map((f) => (
-                            <span key={f} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                              <Check className="h-2.5 w-2.5 text-foreground/40" />
-                              {f}
+                          {plan.featureKeys.map((fKey) => (
+                            <span
+                              key={fKey}
+                              className="inline-flex items-center gap-1 text-[13px] text-[#615d59]"
+                            >
+                              <Check className="h-2.5 w-2.5 text-[#a39e98]" />
+                              {t(fKey)}
                             </span>
                           ))}
                         </div>
@@ -188,18 +252,32 @@ export function FeedbackRequestModal({
               })}
             </div>
 
+            {/* Stripe not connected notice */}
+            {!designerHasPayout && (
+              <div className="mx-5 mb-2 flex items-start gap-2 p-3 rounded-lg bg-amber-50 text-amber-800">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <p className="text-[13px]">
+                  {t("payment.stripeNotConnected")}
+                </p>
+              </div>
+            )}
+
             {/* CTA */}
             <div className="p-5 pt-0">
               <Button
-                className="w-full h-11 bg-foreground hover:bg-foreground/90 text-background font-semibold"
+                className="w-full h-11 bg-[rgba(0,0,0,0.95)] hover:bg-[rgba(0,0,0,0.95)]/90 text-background font-semibold"
                 onClick={handleSubmit}
                 disabled={isLoading}
               >
-                {isLoading ? "처리 중..." : selectedPlan === "free" ? "요청 보내기" : `${PLANS.find((p) => p.id === selectedPlan)?.price}로 피드백 요청하기`}
+                {isLoading
+                  ? t("payment.processing")
+                  : selectedPlan === "free"
+                    ? t("payment.sendRequest")
+                    : t("payment.requestWithPrice").replace("{price}", PLANS.find((p) => p.id === selectedPlan)?.price ?? "")}
               </Button>
-              {selectedPlan !== "free" && (
-                <p className="text-[11px] text-muted-foreground/40 text-center mt-2">
-                  Stripe 안전 결제 · 만족하지 않으면 환불
+              {selectedPlan !== "free" && designerHasPayout && (
+                <p className="text-[13px] text-[#a39e98] text-center mt-2">
+                  {t("payment.stripeSecure")}
                 </p>
               )}
             </div>

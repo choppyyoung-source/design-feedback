@@ -235,6 +235,7 @@ export function ReviewCanvas({
       areaLabel: string;
       changeSpec: ChangeSpec | null;
       authorName: string;
+      imageUrls: string[];
     }) => {
       if (!pendingPin) return;
 
@@ -255,6 +256,7 @@ export function ReviewCanvas({
         author_name: authorName,
         created_at: new Date().toISOString(),
         order_index: annotations.length,
+        image_urls: data.imageUrls ?? [],
         replies: [],
       };
 
@@ -383,7 +385,7 @@ export function ReviewCanvas({
   return (
     <div
       ref={outerRef}
-      className={`relative w-full h-full overflow-hidden bg-muted/30 ${
+      className={`relative w-full h-full overflow-hidden bg-[#f6f5f4] ${
         isSpaceHeld ? "cursor-grab" : ""
       }`}
       data-space-held={isSpaceHeld ? "1" : ""}

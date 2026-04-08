@@ -97,6 +97,7 @@ export interface Annotation {
   author_name: string;
   created_at: string;
   order_index: number;
+  image_urls: string[];
   replies: AnnotationReply[];
 }
 
@@ -139,6 +140,7 @@ export interface ExportAnnotation {
     width: number;
     height: number;
   } | null;
+  imageUrls: string[];
   areaLabel: string;
   category: AnnotationCategory;
   severity: AnnotationSeverity;

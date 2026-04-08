@@ -1,3 +1,11 @@
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import {
+  dbGetProfile,
+  dbSaveProfile,
+  dbGetAllProfiles,
+  dbAddRating,
+} from "@/lib/supabase/db";
+
 export type DesignerSpecialty =
   | "ui-ux"
   | "graphic"
@@ -28,6 +36,11 @@ export interface UserProfile {
   linkedinUrl?: string;
   portfolioUrl?: string;
   isPrivate?: boolean;
+  stripeAccountId?: string;
+  stripeOnboarded?: boolean;
+  payoutMethod?: "paypal" | "bank" | null;
+  paypalEmail?: string;
+  bankInfo?: string; // 은행명 + 계좌번호 (자유 입력)
   ratings: {
     from: string;
     score: number;
@@ -37,50 +50,78 @@ export interface UserProfile {
   createdAt: string;
 }
 
+// ─── localStorage helpers ───
+
 const KEY = "dr_profiles";
 
-function getAll(): Record<string, UserProfile> {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) || "{}");
-  } catch {
-    return {};
-  }
+function _lsGetAll(): Record<string, UserProfile> {
+  try { return JSON.parse(localStorage.getItem(KEY) || "{}"); }
+  catch { return {}; }
 }
 
-function saveAll(profiles: Record<string, UserProfile>) {
+function _lsSaveAll(profiles: Record<string, UserProfile>) {
   localStorage.setItem(KEY, JSON.stringify(profiles));
 }
 
-export function getProfile(email: string): UserProfile | null {
-  return getAll()[email] ?? null;
+// ─── Public API (Supabase + localStorage fallback) ───
+
+export async function getProfile(email: string): Promise<UserProfile | null> {
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await dbGetProfile(email);
+      if (result) return result;
+    } catch (e) { console.error("Supabase getProfile:", e); }
+  }
+  // Always check localStorage as fallback (Supabase may not have this profile yet)
+  return _lsGetAll()[email] ?? null;
 }
 
-export function saveProfile(profile: UserProfile) {
-  const all = getAll();
+export async function saveProfile(profile: UserProfile) {
+  // Always save to localStorage as cache
+  const all = _lsGetAll();
   all[profile.email] = profile;
-  saveAll(all);
+  _lsSaveAll(all);
+
+  if (isSupabaseConfigured()) {
+    await dbSaveProfile(profile).catch(console.error);
+  }
 }
 
-export function getAllProfiles(): UserProfile[] {
-  return Object.values(getAll()).sort(
+export async function getAllProfiles(): Promise<UserProfile[]> {
+  const lsProfiles = Object.values(_lsGetAll());
+
+  if (isSupabaseConfigured()) {
+    try {
+      const dbProfiles = await dbGetAllProfiles();
+      // Merge: Supabase + localStorage (localStorage fills gaps)
+      const byEmail = new Map<string, UserProfile>();
+      for (const p of lsProfiles) byEmail.set(p.email, p);
+      for (const p of dbProfiles) byEmail.set(p.email, p); // DB takes priority
+      return Array.from(byEmail.values()).sort(
+        (a, b) => b.createdAt.localeCompare(a.createdAt)
+      );
+    } catch (e) { console.error("Supabase getAllProfiles:", e); }
+  }
+  return lsProfiles.sort(
     (a, b) => b.createdAt.localeCompare(a.createdAt)
   );
 }
 
-export function addRating(
+export async function addRating(
   targetEmail: string,
   from: string,
   score: number,
   comment: string
 ) {
-  const all = getAll();
+  // localStorage update
+  const all = _lsGetAll();
   const profile = all[targetEmail];
-  if (!profile) return;
-  profile.ratings.push({
-    from,
-    score,
-    comment,
-    createdAt: new Date().toISOString(),
-  });
-  saveAll(all);
+  if (profile) {
+    profile.ratings.push({ from, score, comment, createdAt: new Date().toISOString() });
+    _lsSaveAll(all);
+  }
+
+  if (isSupabaseConfigured()) {
+    await dbAddRating(targetEmail, from, score, comment).catch(console.error);
+  }
 }

@@ -1,39 +1,39 @@
 import type { ExportData, ExportAnnotation, AnnotationSeverity } from "@/types";
 
-const SEVERITY_KO: Record<AnnotationSeverity, string> = {
-  "must-fix": "필수 수정",
-  "should-fix": "수정 권장",
-  suggestion: "제안",
-  praise: "좋아요",
+const SEVERITY_KEY: Record<AnnotationSeverity, string> = {
+  "must-fix": "severity.mustFix",
+  "should-fix": "severity.shouldFix",
+  suggestion: "severity.suggestion",
+  praise: "severity.praise",
 };
 
-export function exportToMarkdown(data: ExportData): string {
+export function exportToMarkdown(data: ExportData, t: (key: string) => string): string {
   const lines: string[] = [];
 
   // Header
   lines.push(`# Design Feedback: ${data.reviewMeta.title}`);
   lines.push("");
-  lines.push(`- **이미지 크기:** ${data.reviewMeta.dimensions}`);
+  lines.push(`- **${t("export.markdownImageSize")}:** ${data.reviewMeta.dimensions}`);
 
   if (data.reviewMeta.designContext) {
     const ctx = data.reviewMeta.designContext;
-    if (ctx.framework) lines.push(`- **프레임워크:** ${ctx.framework}`);
-    if (ctx.stylingApproach) lines.push(`- **스타일링:** ${ctx.stylingApproach}`);
-    if (ctx.filePath) lines.push(`- **파일:** \`${ctx.filePath}\``);
-    if (ctx.description) lines.push(`- **설명:** ${ctx.description}`);
+    if (ctx.framework) lines.push(`- **${t("export.markdownFramework")}:** ${ctx.framework}`);
+    if (ctx.stylingApproach) lines.push(`- **${t("export.markdownStyling")}:** ${ctx.stylingApproach}`);
+    if (ctx.filePath) lines.push(`- **${t("export.markdownFile")}:** \`${ctx.filePath}\``);
+    if (ctx.description) lines.push(`- **${t("export.markdownDescription")}:** ${ctx.description}`);
   }
 
   // Summary
   lines.push("");
-  lines.push("## 요약");
+  lines.push(`## ${t("export.markdownSummary")}`);
   const summaryParts: string[] = [];
   for (const [severity, count] of Object.entries(data.summary.bySeverity)) {
-    if (count > 0) summaryParts.push(`${count}개 ${SEVERITY_KO[severity as AnnotationSeverity]}`);
+    if (count > 0) summaryParts.push(`${count} ${t(SEVERITY_KEY[severity as AnnotationSeverity])}`);
   }
   lines.push(summaryParts.join(", "));
 
   // Group by severity
-  // "좋아요"는 AI 내보내기에서 제외
+  // Exclude "praise" from AI export
   const severityOrder: AnnotationSeverity[] = ["must-fix", "should-fix", "suggestion"];
 
   for (const severity of severityOrder) {
@@ -41,33 +41,33 @@ export function exportToMarkdown(data: ExportData): string {
     if (group.length === 0) continue;
 
     lines.push("");
-    lines.push(`## ${SEVERITY_KO[severity]}`);
+    lines.push(`## ${t(SEVERITY_KEY[severity])}`);
 
     for (const annotation of group) {
       lines.push("");
-      lines.push(formatAnnotation(annotation));
+      lines.push(formatAnnotation(annotation, t));
     }
   }
 
   lines.push("");
   lines.push("---");
-  lines.push("*Design Feedback에서 내보냄. AI 도구에 붙여넣어 구현 제안을 받으세요.*");
+  lines.push(`*${t("export.markdownFooter")}*`);
 
   return lines.join("\n");
 }
 
-function formatAnnotation(a: ExportAnnotation): string {
+function formatAnnotation(a: ExportAnnotation, t: (key: string) => string): string {
   const lines: string[] = [];
 
   // Title: use OCR text if available, fallback to position
   const label = a.areaLabel
-    ? `"${a.areaLabel}" 영역`
-    : `${a.position.region} 영역`;
+    ? `"${a.areaLabel}" ${t("export.markdownArea")}`
+    : `${a.position.region} ${t("export.markdownArea")}`;
 
   if (a.regionBounds) {
     const r = a.regionBounds;
     lines.push(
-      `### #${a.index} — ${label} (${r.width}x${r.height}px, 좌표 ${r.x},${r.y})`
+      `### #${a.index} — ${label} (${r.width}x${r.height}px, ${t("export.markdownCoord")} ${r.x},${r.y})`
     );
   } else {
     lines.push(
@@ -77,6 +77,14 @@ function formatAnnotation(a: ExportAnnotation): string {
 
   lines.push("");
   lines.push(`> ${a.comment}`);
+
+  // Include reference images if attached
+  if (a.imageUrls?.length) {
+    lines.push("");
+    for (let i = 0; i < a.imageUrls.length; i++) {
+      lines.push(`- ${t("export.markdownReferenceImage")} ${i + 1}: ${a.imageUrls[i]}`);
+    }
+  }
 
   return lines.join("\n");
 }

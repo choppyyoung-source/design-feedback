@@ -3,11 +3,19 @@
 import type { Annotation, ProjectStatus, Review } from "@/types";
 import { MessageCircle } from "lucide-react";
 import { ReviewGrid } from "./ReviewGrid";
+import { useT } from "@/lib/i18n";
 
-const STATUS_BADGE_STYLE: Record<ProjectStatus, { label: string; bg: string; text: string; dot: string }> = {
-  receiving: { label: "피드백 받는 중", bg: "bg-blue-50 border border-blue-200/60", text: "text-blue-600", dot: "bg-blue-500 animate-pulse" },
-  applying: { label: "적용 중", bg: "bg-amber-50 border border-amber-200/60", text: "text-amber-600", dot: "bg-amber-500" },
-  completed: { label: "반영 완료", bg: "bg-emerald-50 border border-emerald-200/60", text: "text-emerald-600", dot: "bg-emerald-500" },
+const STATUS_BADGE_KEY: Record<ProjectStatus, { labelKey: string; bg: string; text: string; dot: string }> = {
+  receiving: { labelKey: "status.receiving", bg: "bg-blue-50 border border-blue-200/60", text: "text-blue-600", dot: "bg-blue-500 animate-pulse" },
+  applying: { labelKey: "status.applyingShort", bg: "bg-amber-50 border border-amber-200/60", text: "text-amber-600", dot: "bg-amber-500" },
+  completed: { labelKey: "status.completedAlt", bg: "bg-emerald-50 border border-emerald-200/60", text: "text-emerald-600", dot: "bg-emerald-500" },
+};
+
+const SEVERITY_STYLE_KEY: Record<string, { bg: string; text: string; dot: string; labelKey: string }> = {
+  "must-fix": { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", labelKey: "severity.mustFix" },
+  "should-fix": { bg: "bg-amber-50", text: "text-amber-600", dot: "bg-amber-500", labelKey: "severity.shouldFix" },
+  suggestion: { bg: "bg-blue-50", text: "text-blue-600", dot: "bg-blue-500", labelKey: "severity.suggestion" },
+  praise: { bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500", labelKey: "severity.praise" },
 };
 
 interface CommentItem {
@@ -35,14 +43,8 @@ interface MyCommentsListProps {
   onSelectPublicProject?: (r: Review) => void;
 }
 
-const SEVERITY_STYLE: Record<string, { bg: string; text: string; dot: string; label: string }> = {
-  "must-fix": { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", label: "필수 수정" },
-  "should-fix": { bg: "bg-amber-50", text: "text-amber-600", dot: "bg-amber-500", label: "수정 권장" },
-  suggestion: { bg: "bg-blue-50", text: "text-blue-600", dot: "bg-blue-500", label: "제안" },
-  praise: { bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500", label: "좋아요" },
-};
-
 export function MyCommentsList({ comments, onSelectProject, onExplore, publicProjects, onSelectPublicProject }: MyCommentsListProps) {
+  const t = useT();
   // Group by project
   const grouped = comments.reduce<Record<string, CommentItem[]>>((acc, item) => {
     if (!acc[item.projectId]) acc[item.projectId] = [];
@@ -62,11 +64,11 @@ export function MyCommentsList({ comments, onSelectProject, onExplore, publicPro
         return (
           <div
             key={projectId}
-            className="rounded-2xl border border-border/70 bg-card overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+            className="rounded-md border border-[rgba(0,0,0,0.1)] bg-card overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
             onClick={() => onSelectProject(projectId)}
           >
             {/* Project header */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 bg-muted/10">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(0,0,0,0.08)] bg-[#f6f5f4]/50">
               <div className="w-8 h-8 rounded-lg bg-muted overflow-hidden flex-shrink-0">
                 {first.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -76,7 +78,7 @@ export function MyCommentsList({ comments, onSelectProject, onExplore, publicPro
                     className="w-full h-full object-cover object-top"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 text-xs">
+                  <div className="w-full h-full flex items-center justify-center text-[#a39e98] text-xs">
                     📄
                   </div>
                 )}
@@ -84,51 +86,51 @@ export function MyCommentsList({ comments, onSelectProject, onExplore, publicPro
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-[15px] font-semibold truncate">{first.projectName}</p>
-                  <span className="text-[12px] text-muted-foreground/50 flex-shrink-0">{items.length}개의 피드백을 남겼어요</span>
+                  <span className="text-sm text-[#a39e98] flex-shrink-0">{items.length}{t("comments.feedbackLeftCount")}</span>
                 </div>
                 {first.pageName && first.pageName !== first.projectName && (
-                  <p className="text-[12px] text-muted-foreground truncate">{first.pageName}</p>
+                  <p className="text-sm text-[#615d59] truncate">{first.pageName}</p>
                 )}
               </div>
               {(() => {
                 const s = first.projectStatus ?? "receiving";
-                const badge = STATUS_BADGE_STYLE[s];
+                const badge = STATUS_BADGE_KEY[s];
                 return (
-                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium flex-shrink-0 ${badge.bg} ${badge.text}`}>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[13px] font-medium flex-shrink-0 ${badge.bg} ${badge.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
-                    {badge.label}
+                    {t(badge.labelKey)}
                   </div>
                 );
               })()}
             </div>
 
             {/* Comments */}
-            <div className="divide-y divide-border/20">
+            <div className="divide-y divide-[rgba(0,0,0,0.06)]">
               {items.map((item) => {
                 const isOwnerQuestion = item.ownerEmail && item.annotation.author_name === item.ownerEmail;
-                const style = SEVERITY_STYLE[item.annotation.severity] ?? SEVERITY_STYLE.suggestion;
+                const style = SEVERITY_STYLE_KEY[item.annotation.severity] ?? SEVERITY_STYLE_KEY.suggestion;
                 return (
                   <div
                     key={item.annotation.id}
-                    className="px-4 py-3 hover:bg-muted/20 transition-colors"
+                    className="px-4 py-3 hover:bg-[#f6f5f4] transition-colors"
                   >
-                    <p className="text-sm leading-relaxed text-foreground/90 mb-1.5">
+                    <p className="text-sm leading-relaxed text-[rgba(0,0,0,0.95)] mb-1.5">
                       {item.annotation.comment}
                     </p>
                     <div className="flex items-center gap-2">
                       {isOwnerQuestion ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-violet-50 text-violet-600">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] font-medium bg-violet-50 text-violet-600">
                           <span className="w-1 h-1 rounded-full bg-violet-500" />
-                          작성자 질문
+                          {t("review.ownerQuestion")}
                         </span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${style.bg} ${style.text}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] font-medium ${style.bg} ${style.text}`}>
                           <span className={`w-1 h-1 rounded-full ${style.dot}`} />
-                          {style.label}
+                          {t(style.labelKey)}
                         </span>
                       )}
-                      <span className="text-[11px] text-muted-foreground/40 ml-auto">
-                        {formatDate(item.annotation.created_at)}
+                      <span className="text-[13px] text-[#a39e98] ml-auto">
+                        {formatDate(item.annotation.created_at, t)}
                       </span>
                     </div>
                   </div>
@@ -141,11 +143,11 @@ export function MyCommentsList({ comments, onSelectProject, onExplore, publicPro
         </div>
       ) : (
         <div className="py-16 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center mx-auto mb-3">
-            <MessageCircle className="h-5 w-5 text-muted-foreground/30" />
+          <div className="w-12 h-12 rounded-md bg-[#f6f5f4] flex items-center justify-center mx-auto mb-3">
+            <MessageCircle className="h-5 w-5 text-[#a39e98]" />
           </div>
-          <p className="text-sm font-medium mb-0.5">아직 남긴 피드백이 없어요</p>
-          <p className="text-xs text-muted-foreground/60">아래 프로젝트에 피드백을 남겨보세요</p>
+          <p className="text-sm font-medium mb-0.5">{t("comments.noFeedbackYet")}</p>
+          <p className="text-xs text-[#615d59]">{t("comments.exploreBelowProjects")}</p>
         </div>
       )}
 
@@ -153,8 +155,8 @@ export function MyCommentsList({ comments, onSelectProject, onExplore, publicPro
       {publicProjects && publicProjects.length > 0 && (
         <section className="mt-6">
           <div className="flex items-center gap-1.5 mb-5">
-            <span className="text-[13px] font-semibold">피드백이 필요한 프로젝트</span>
-            <span className="text-[11px] text-muted-foreground/40">{publicProjects.length}</span>
+            <span className="text-[13px] font-semibold">{t("comments.projectsNeedingFeedback")}</span>
+            <span className="text-[13px] text-[#a39e98]">{publicProjects.length}</span>
           </div>
           <ReviewGrid
             reviews={publicProjects}
@@ -171,22 +173,22 @@ export function MyCommentsList({ comments, onSelectProject, onExplore, publicPro
       )}
 
       {(!publicProjects || publicProjects.length === 0) && !hasComments && (
-        <p className="text-xs text-muted-foreground/50 text-center">아직 피드백이 필요한 프로젝트가 없어요</p>
+        <p className="text-xs text-[#a39e98] text-center">{t("comments.noProjectsNeedingFeedback")}</p>
       )}
     </div>
   );
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, t: (key: string) => string): string {
   const d = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "방금 전";
-  if (diffMin < 60) return `${diffMin}분 전`;
+  if (diffMin < 1) return t("time.justNow");
+  if (diffMin < 60) return t("time.minutesAgo").replace("{n}", String(diffMin));
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}시간 전`;
+  if (diffHr < 24) return t("time.hoursAgo").replace("{n}", String(diffHr));
   const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}일 전`;
+  if (diffDay < 7) return t("time.daysAgo").replace("{n}", String(diffDay));
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }

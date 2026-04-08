@@ -60,6 +60,7 @@ export function buildExportData(
     severity: a.severity,
     comment: a.comment,
     changeSpec: a.change_spec,
+    imageUrls: a.image_urls ?? [],
   }));
 
   return {

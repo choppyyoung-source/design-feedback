@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, Image as ImageIcon, Link, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { useT } from "@/lib/i18n";
 
 export interface DiscoveredLink {
   url: string;
@@ -28,6 +29,7 @@ export function ImageUploader({
   onImageSelected,
   onUrlScreenshot,
 }: ImageUploaderProps) {
+  const t = useT();
   const [isDragOver, setIsDragOver] = useState(false);
   const [url, setUrl] = useState("");
   const [isCapturing, setIsCapturing] = useState(false);
@@ -75,7 +77,7 @@ export function ImageUploader({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "캡처에 실패했어요");
+        setError(data.error || t("upload.captureError"));
         return;
       }
 
@@ -91,13 +93,13 @@ export function ImageUploader({
     } finally {
       setIsCapturing(false);
     }
-  }, [url, onUrlScreenshot]);
+  }, [url, onUrlScreenshot, t]);
 
   return (
     <div className="space-y-5">
       {/* URL Input */}
-      <div className="rounded-2xl border border-border/70 bg-card p-5">
-        <h3 className="font-semibold text-[15px] mb-3">링크 붙여넣기</h3>
+      <div className="rounded-md border border-[rgba(0,0,0,0.1)] bg-card p-5">
+        <h3 className="font-semibold text-[15px] mb-3">{t("upload.pasteLink")}</h3>
         <div className="flex gap-2">
           <Input
             placeholder="https://example.com"
@@ -115,34 +117,34 @@ export function ImageUploader({
           <Button
             onClick={handleUrlCapture}
             disabled={!url.trim() || isCapturing}
-            className="h-10 px-5 bg-foreground hover:bg-foreground/90 text-background"
+            className="h-10 px-5 bg-[rgba(0,0,0,0.95)] hover:bg-[rgba(0,0,0,0.95)]/90 text-background"
           >
             {isCapturing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                캡처 중...
+                {t("upload.capturing")}
               </>
             ) : (
-              "캡처"
+              t("upload.capture")
             )}
           </Button>
         </div>
         {error && <p className="text-[13px] text-destructive mt-2">{error}</p>}
-        <p className="text-[12px] text-muted-foreground/50 mt-2">
-          페이지의 스크린샷을 자동으로 찍어요
+        <p className="text-sm text-[#a39e98] mt-2">
+          {t("upload.autoScreenshot")}
         </p>
       </div>
 
       {/* Divider */}
       <div className="flex items-center gap-4">
         <Separator className="flex-1" />
-        <span className="text-[12px] text-muted-foreground/40 font-medium">또는</span>
+        <span className="text-sm text-[#a39e98] font-medium">{t("upload.or")}</span>
         <Separator className="flex-1" />
       </div>
 
       {/* File Upload */}
       <div
-        className={`relative rounded-2xl transition-all cursor-pointer group/upload ${
+        className={`relative rounded-md transition-all cursor-pointer group/upload ${
           isDragOver ? "scale-[1.01]" : ""
         }`}
         onDragOver={(e) => {
@@ -164,25 +166,25 @@ export function ImageUploader({
             style={{ width: "calc(100% - 2px)", height: "calc(100% - 2px)" }}
           />
         </svg>
-        <div className={`p-8 text-center rounded-2xl transition-colors ${
-          isDragOver ? "bg-primary/5" : "bg-card hover:bg-muted/20"
+        <div className={`p-8 text-center rounded-md transition-colors ${
+          isDragOver ? "bg-primary/5" : "bg-card hover:bg-[#f6f5f4]"
         }`}>
           <div className="flex flex-col items-center gap-2.5">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
-              isDragOver ? "bg-primary/15" : "bg-muted/50"
+            <div className={`w-11 h-11 rounded-md flex items-center justify-center transition-colors ${
+              isDragOver ? "bg-primary/15" : "bg-[#f6f5f4]"
             }`}>
               {isDragOver ? (
                 <ImageIcon className="w-5 h-5 text-primary" />
               ) : (
-                <Upload className="w-5 h-5 text-muted-foreground/50" />
+                <Upload className="w-5 h-5 text-[#a39e98]" />
               )}
             </div>
             <div>
               <p className="font-semibold text-[14px]">
-                {isDragOver ? "여기에 놓으세요" : "이미지 직접 올리기"}
+                {isDragOver ? t("upload.dropHere") : t("upload.directUpload")}
               </p>
-              <p className="text-[12px] text-muted-foreground/50 mt-0.5">
-                드래그 앤 드롭하거나 클릭해서 선택. PNG, JPG, WebP
+              <p className="text-sm text-[#a39e98] mt-0.5">
+                {t("upload.dragAndDrop")}
               </p>
             </div>
           </div>

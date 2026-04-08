@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Pretendard Variable", var(--font-sans), system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", var(--font-sans), -apple-system, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -48,73 +48,50 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── Notion-inspired warm minimal theme ── */
 :root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.17 0.02 285);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.02 285);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.02 285);
-  --primary: oklch(0.55 0.2 265);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 265);
-  --secondary-foreground: oklch(0.3 0.05 265);
-  --muted: oklch(0.96 0.005 265);
-  --muted-foreground: oklch(0.5 0.02 265);
-  --accent: oklch(0.96 0.015 265);
-  --accent-foreground: oklch(0.3 0.05 265);
-  --destructive: oklch(0.58 0.22 28);
-  --border: oklch(0.92 0.005 265);
-  --input: oklch(0.92 0.005 265);
-  --ring: oklch(0.55 0.2 265);
-  --chart-1: oklch(0.55 0.2 265);
-  --chart-2: oklch(0.65 0.18 160);
-  --chart-3: oklch(0.7 0.15 50);
-  --chart-4: oklch(0.6 0.2 310);
-  --chart-5: oklch(0.65 0.15 200);
-  --radius: 0.75rem;
-  --sidebar: oklch(0.98 0.005 265);
-  --sidebar-foreground: oklch(0.17 0.02 285);
-  --sidebar-primary: oklch(0.55 0.2 265);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.01 265);
-  --sidebar-accent-foreground: oklch(0.3 0.05 265);
-  --sidebar-border: oklch(0.92 0.005 265);
-  --sidebar-ring: oklch(0.55 0.2 265);
+  --background: #ffffff;
+  --foreground: rgba(0, 0, 0, 0.95);
+  --card: #ffffff;
+  --card-foreground: rgba(0, 0, 0, 0.95);
+  --popover: #ffffff;
+  --popover-foreground: rgba(0, 0, 0, 0.95);
+  /* Notion Blue */
+  --primary: #0075de;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f5f4;
+  --secondary-foreground: #31302e;
+  --muted: #f6f5f4;
+  --muted-foreground: #615d59;
+  --accent: #f2f9ff;
+  --accent-foreground: #31302e;
+  --destructive: #eb5757;
+  /* Whisper borders */
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.1);
+  --ring: #0075de;
+  --chart-1: #0075de;
+  --chart-2: #2a9d99;
+  --chart-3: #dd5b00;
+  --chart-4: #ff64c8;
+  --chart-5: #1aae39;
+  --radius: 0.25rem;
+  --sidebar: #f6f5f4;
+  --sidebar-foreground: rgba(0, 0, 0, 0.95);
+  --sidebar-primary: #0075de;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f2f9ff;
+  --sidebar-accent-foreground: #31302e;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #0075de;
 }
 
-.dark {
-  --background: oklch(0.13 0.015 265);
-  --foreground: oklch(0.95 0.005 265);
-  --card: oklch(0.17 0.015 265);
-  --card-foreground: oklch(0.95 0.005 265);
-  --popover: oklch(0.17 0.015 265);
-  --popover-foreground: oklch(0.95 0.005 265);
-  --primary: oklch(0.65 0.2 265);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.22 0.02 265);
-  --secondary-foreground: oklch(0.9 0.005 265);
-  --muted: oklch(0.22 0.02 265);
-  --muted-foreground: oklch(0.65 0.02 265);
-  --accent: oklch(0.22 0.02 265);
-  --accent-foreground: oklch(0.9 0.005 265);
-  --destructive: oklch(0.7 0.19 22);
-  --border: oklch(0.25 0.015 265);
-  --input: oklch(0.25 0.015 265);
-  --ring: oklch(0.65 0.2 265);
-  --chart-1: oklch(0.65 0.2 265);
-  --chart-2: oklch(0.7 0.18 160);
-  --chart-3: oklch(0.75 0.15 50);
-  --chart-4: oklch(0.65 0.2 310);
-  --chart-5: oklch(0.7 0.15 200);
-  --sidebar: oklch(0.15 0.015 265);
-  --sidebar-foreground: oklch(0.95 0.005 265);
-  --sidebar-primary: oklch(0.65 0.2 265);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.22 0.02 265);
-  --sidebar-accent-foreground: oklch(0.9 0.005 265);
-  --sidebar-border: oklch(0.25 0.015 265);
-  --sidebar-ring: oklch(0.65 0.2 265);
+/* ── Notion shadows ── */
+.shadow-notion {
+  box-shadow: rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2px 8px, rgba(0,0,0,0.02) 0px 1px 3px;
+}
+.shadow-notion-lg {
+  box-shadow: rgba(0,0,0,0.01) 0px 1px 3px, rgba(0,0,0,0.02) 0px 3px 7px, rgba(0,0,0,0.02) 0px 7px 15px, rgba(0,0,0,0.04) 0px 14px 28px;
 }
 
 @keyframes gradient-shift {
@@ -133,7 +110,7 @@
 }
 
 .group\/new:hover .dash-border {
-  stroke: oklch(0.6 0.15 265 / 0.4);
+  stroke: rgba(0, 117, 222, 0.4);
   animation: dash-spin 0.6s linear infinite;
 }
 
@@ -162,11 +139,18 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "ss01", "ss02", "cv01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
   }
+  h1, h2, h3, h4, h5, h6 {
+    color: rgba(0, 0, 0, 0.95);
+    font-weight: 700;
+  }
+  h1 { font-size: 2.5rem; letter-spacing: -0.04em; line-height: 1.05; }
+  h2 { font-size: 1.625rem; letter-spacing: -0.02em; line-height: 1.23; }
+  h3 { font-size: 1.25rem; letter-spacing: -0.01em; line-height: 1.3; }
+  p { color: #615d59; line-height: 1.6; }
 }

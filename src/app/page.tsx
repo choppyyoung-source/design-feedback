@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,9 +29,12 @@ import {
   getPublicProjects,
   getProject,
   deleteProject as deleteStoredProject,
+  type StoredProject,
 } from "@/lib/storage";
 import { markProjectSeen } from "@/lib/notifications";
 import type { Annotation, Project, Review, ReviewPage } from "@/types";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { useT, LanguageToggle } from "@/lib/i18n";
 import {
   MousePointerClick,
   FileOutput,
@@ -49,6 +52,7 @@ interface User {
 }
 
 export default function Home() {
+  const t = useT();
   const store = useReviewStore();
   const {
     project,
@@ -88,41 +92,67 @@ export default function Home() {
     ReturnType<typeof getPublicProjects>
   >([]);
   const [landingPath, setLandingPath] = useState<"give" | "receive" | null>(null);
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const session = localStorage.getItem("dr_session");
-      return session ? JSON.parse(session) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<User | null>(null);
 
-  // Load projects on mount
-  useState(() => {
-    if (typeof window !== "undefined") {
+  // Auth: restore session + listen for changes
+  useEffect(() => {
+    const loadProjects = async (email: string | null) => {
+      if (email) {
+        const [my, pub] = await Promise.all([getUserProjects(email), getPublicProjects()]);
+        setMyProjects(my);
+        setPublicProjects(pub.filter((p) => p.project.created_by !== email));
+      } else {
+        setMyProjects([]);
+        setPublicProjects(await getPublicProjects());
+      }
+    };
+
+    if (!isSupabaseConfigured()) {
       try {
         const session = localStorage.getItem("dr_session");
         if (session) {
           const u = JSON.parse(session);
-          setTimeout(() => {
-            setMyProjects(getUserProjects(u.email));
-            setPublicProjects(getPublicProjects().filter((p) => p.project.created_by !== u.email));
-          }, 0);
+          setUser(u);
+          loadProjects(u.email);
         } else {
-          setTimeout(() => setPublicProjects(getPublicProjects()), 0);
+          loadProjects(null);
         }
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
+      return;
     }
-    return true;
-  });
+
+    const supabase = createClient();
+
+    const setUserFromSession = (session: { user: { email?: string; user_metadata?: Record<string, string> } } | null) => {
+      if (session?.user) {
+        const u: User = {
+          email: session.user.email ?? "",
+          name: session.user.user_metadata?.full_name ?? session.user.email?.split("@")[0] ?? "",
+        };
+        setUser(u);
+        loadProjects(u.email);
+      } else {
+        setUser(null);
+        loadProjects(null);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserFromSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserFromSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const refreshProjects = useCallback(
-    (email: string) => {
-      setMyProjects(getUserProjects(email));
-      setPublicProjects(getPublicProjects().filter((p) => p.project.created_by !== email));
+    async (email: string) => {
+      const [my, pub] = await Promise.all([getUserProjects(email), getPublicProjects()]);
+      setMyProjects(my);
+      setPublicProjects(pub.filter((p) => p.project.created_by !== email));
     },
     []
   );
@@ -142,7 +172,11 @@ export default function Home() {
     [project, pageAnnotations, setProject, refreshProjects]
   );
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    }
     localStorage.removeItem("dr_session");
     setUser(null);
     setMyProjects([]);
@@ -320,16 +354,24 @@ export default function Home() {
     [addPage, setActivePageId]
   );
 
-  // Save and go back to dashboard
-  const handleSaveAndGoBack = useCallback(() => {
-    if (project && user) {
-      saveProject(project, pageAnnotations);
-      const total = Object.values(pageAnnotations).flat().length;
-      markProjectSeen(project.id, total);
-      refreshProjects(user.email);
-    }
+  // Save and go back to dashboard — reset UI immediately, save in background
+  const handleSaveAndGoBack = useCallback(async () => {
+    const savedProject = project;
+    const savedAnnotations = pageAnnotations;
+    const savedUser = user;
+
+    // Reset UI immediately for snappy transition
     reset();
     setShowUpload(false);
+
+    // Save & refresh in background
+    if (savedProject && savedUser) {
+      saveProject(savedProject, savedAnnotations).then(() => {
+        const total = Object.values(savedAnnotations).flat().length;
+        markProjectSeen(savedProject.id, total);
+        refreshProjects(savedUser.email);
+      });
+    }
   }, [project, user, pageAnnotations, reset, refreshProjects]);
 
   // Open existing project from dashboard
@@ -352,9 +394,9 @@ export default function Home() {
   );
 
   const handleDeleteProject = useCallback(
-    (id: string) => {
-      deleteStoredProject(id);
-      if (user) refreshProjects(user.email);
+    async (id: string) => {
+      await deleteStoredProject(id);
+      if (user) await refreshProjects(user.email);
     },
     [user, refreshProjects]
   );
@@ -480,30 +522,30 @@ export default function Home() {
       return (
         <div className="flex-1 bg-background min-h-screen">
           {/* Sticky header */}
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border/40">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-[rgba(0,0,0,0.08)]">
             <div className="max-w-5xl mx-auto px-6">
               <div className="flex items-center justify-between h-14">
                 <h1 className="text-sm font-bold tracking-tight cursor-pointer" onClick={() => window.location.reload()}>Design Feedback</h1>
                 <button
-                  className="text-[11px] text-muted-foreground/40 hover:text-foreground transition-colors"
+                  className="text-[13px] text-[#615d59] hover:text-foreground transition-colors"
                   onClick={handleLogout}
                 >
-                  로그아웃
+                  {t("auth.logout")}
                 </button>
               </div>
               {/* Tabs */}
               <div className="flex items-center gap-1 -mb-px">
                 {([
-                  { key: "requested", label: "피드백 요청하기" },
-                  { key: "commented", label: "피드백 남기기" },
-                  { key: "profile", label: "내 프로필" },
+                  { key: "requested", label: t("dashboard.requestFeedback") },
+                  { key: "commented", label: t("dashboard.giveFeedback") },
+                  { key: "profile", label: t("dashboard.myProfile") },
                 ] as const).map((tab) => (
                   <button
                     key={tab.key}
                     className={`px-3 py-2 text-[13px] font-medium rounded-t-lg transition-colors ${
                       dashboardTab === tab.key
-                        ? "text-foreground bg-muted/40"
-                        : "text-muted-foreground/50 hover:text-foreground hover:bg-muted/20"
+                        ? "text-foreground bg-[#f6f5f4]"
+                        : "text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4]"
                     }`}
                     onClick={() => { setDashboardTab(tab.key); setViewProfileEmail(null); }}
                   >
@@ -524,9 +566,9 @@ export default function Home() {
                   className="inline-flex items-center gap-2.5 px-1.5 py-1.5 pr-5 rounded-full bg-gradient-to-r from-white via-white/90 to-white/70 backdrop-blur-xl border border-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all text-left group hover:-translate-y-px"
                   onClick={() => { setDashboardTab("directory" as never); setViewProfileEmail(null); }}
                 >
-                  <span className="px-3 py-1 rounded-full text-white text-xs font-semibold bg-[length:200%_200%] animate-[gradient-shift_3s_ease_infinite] bg-gradient-to-r from-emerald-400 via-cyan-500 to-blue-500">디자이너 찾기</span>
-                  <span className="text-[13px] text-muted-foreground">피드백 받고싶은 디자이너를 찾아보세요</span>
-                  <span className="text-sm text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all ml-1">→</span>
+                  <span className="px-3 py-1 rounded-full text-white text-xs font-semibold bg-[length:200%_200%] animate-[gradient-shift_3s_ease_infinite] bg-gradient-to-r from-emerald-400 via-cyan-500 to-blue-500">{t("dashboard.findDesigner")}</span>
+                  <span className="text-[13px] text-[#615d59]">{t("dashboard.findDesignerDesc")}</span>
+                  <span className="text-sm text-[#615d59] group-hover:text-foreground group-hover:translate-x-0.5 transition-all ml-1">→</span>
                 </button>
 
                 <ReviewGrid
@@ -537,8 +579,8 @@ export default function Home() {
                   }}
                   onDelete={handleDeleteProject}
                   onNew={() => setShowUpload(true)}
-                  emptyMessage="아직 요청한 리뷰가 없어요"
-                  emptyDescription="디자인 리뷰를 받아보세요"
+                  emptyMessage={t("dashboard.noRequestedReviews")}
+                  emptyDescription={t("dashboard.getDesignReview")}
                 />
               </div>
             )}
@@ -650,12 +692,12 @@ export default function Home() {
               <div>
                 <div className="flex items-center gap-2.5 mb-5">
                   <button
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors flex-shrink-0"
                     onClick={() => setViewProfileEmail(null)}
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </button>
-                  <span className="text-[13px] text-muted-foreground/50">디자이너 목록</span>
+                  <span className="text-[13px] text-[#615d59]">{t("dashboard.designerList")}</span>
                 </div>
                 <ProfileSection
                   email={viewProfileEmail}
@@ -739,12 +781,12 @@ export default function Home() {
           <div className="w-full max-w-md">
             <div className="flex items-center gap-2.5 mb-6">
               <button
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors flex-shrink-0"
                 onClick={() => setShowUpload(false)}
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <h2 className="text-[14px] font-semibold">새 프로젝트</h2>
+              <h2 className="text-[14px] font-semibold">{t("dashboard.newProject")}</h2>
             </div>
             <ImageUploader
               onImageSelected={handleImageSelected}
@@ -763,84 +805,80 @@ export default function Home() {
     // Landing: two-path selection or specific path content
     if (!landingPath) {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-6">
-          <div className="w-full mx-auto" style={{ maxWidth: "384px" }}>
-            {/* Logo */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-screen px-6 py-16">
+          <div className="w-full mx-auto" style={{ maxWidth: "460px" }}>
+            {/* Hero */}
             <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-foreground mb-5">
-                <Pin className="h-5 w-5 text-background rotate-45" />
-              </div>
-              <h1 className="text-[15px] font-bold tracking-tight mb-1.5">
+              <h1 className="text-[2.5rem] font-bold tracking-[-0.04em] leading-[1.05] mb-4">
                 Design Feedback
               </h1>
-              <p className="text-[12px] text-muted-foreground/40 leading-relaxed">
-                디자이너의 피드백을 받고, AI에서 바로 적용하세요
+              <p className="text-lg text-[#615d59] leading-relaxed whitespace-pre-line">
+                {t("landing.subtitle")}
               </p>
             </div>
 
             {/* CTA cards */}
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <button
-                className="w-full rounded-2xl border border-border/70 bg-card p-5 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group"
-                onClick={() => setLandingPath("give")}
+                className="w-full rounded-md border border-[rgba(0,0,0,0.1)] bg-white px-6 py-5 text-left shadow-notion hover:shadow-notion-lg transition-shadow group"
+                onClick={() => setLandingPath("receive")}
               >
-                <div className="flex items-start gap-3.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <MessageCircle className="h-4 w-4 text-blue-500" />
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-md bg-[#f2f9ff] flex items-center justify-center flex-shrink-0">
+                    <Upload className="h-5 w-5 text-[#0075de]" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-semibold">피드백 남기기</p>
-                      <span className="text-[12px] text-muted-foreground/20 group-hover:text-foreground/40 group-hover:translate-x-0.5 transition-all">→</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground/40 mt-1 leading-relaxed">
-                      다른 디자이너의 프로젝트를 탐색하고<br />핀을 찍어 피드백을 남겨보세요
+                  <div className="flex-1">
+                    <p className="text-[15px] font-semibold text-[rgba(0,0,0,0.95)]">{t("landing.receiveFeedback")}</p>
+                    <p className="text-[14px] text-[#615d59] mt-0.5">
+                      {t("landing.receiveFeedbackDesc")}
                     </p>
                   </div>
+                  <span className="text-[#a39e98] group-hover:text-[#0075de] transition-colors">→</span>
                 </div>
               </button>
               <button
-                className="w-full rounded-2xl border border-border/70 bg-card p-5 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group"
-                onClick={() => setLandingPath("receive")}
+                className="w-full rounded-md border border-[rgba(0,0,0,0.1)] bg-white px-6 py-5 text-left shadow-notion hover:shadow-notion-lg transition-shadow group"
+                onClick={() => setLandingPath("give")}
               >
-                <div className="flex items-start gap-3.5">
-                  <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Upload className="h-4 w-4 text-violet-500" />
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-md bg-[#f6f5f4] flex items-center justify-center flex-shrink-0">
+                    <MessageCircle className="h-5 w-5 text-[#31302e]" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-semibold">피드백 받기</p>
-                      <span className="text-[12px] text-muted-foreground/20 group-hover:text-foreground/40 group-hover:translate-x-0.5 transition-all">→</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground/40 mt-1 leading-relaxed">
-                      내 디자인 링크를 올리고<br />전문 디자이너의 피드백을 받아보세요
+                  <div className="flex-1">
+                    <p className="text-[15px] font-semibold text-[rgba(0,0,0,0.95)]">{t("landing.giveFeedback")}</p>
+                    <p className="text-[14px] text-[#615d59] mt-0.5">
+                      {t("landing.giveFeedbackDesc")}
                     </p>
                   </div>
+                  <span className="text-[#a39e98] group-hover:text-[#0075de] transition-colors">→</span>
                 </div>
               </button>
             </div>
 
             {/* Footer */}
-            <div className="mt-10 text-center">
+            <div className="mt-10 text-center space-y-3">
               {user ? (
-                <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/35">
+                <div className="flex items-center justify-center gap-2 text-[14px] text-[#a39e98]">
                   <span>{user.email}</span>
-                  <span className="text-muted-foreground/20">·</span>
+                  <span>·</span>
                   <button
-                    className="hover:text-foreground transition-colors underline underline-offset-2 decoration-muted-foreground/20 hover:decoration-foreground/40"
+                    className="text-[#615d59] hover:text-[rgba(0,0,0,0.95)] transition-colors"
                     onClick={handleLogout}
                   >
-                    로그아웃
+                    {t("auth.logout")}
                   </button>
                 </div>
               ) : (
                 <button
-                  className="text-[11px] text-muted-foreground/35 hover:text-foreground transition-colors"
+                  className="text-[14px] text-[#a39e98] hover:text-[rgba(0,0,0,0.95)] transition-colors"
                   onClick={() => setShowAuth(true)}
                 >
-                  이미 계정이 있나요? <span className="underline underline-offset-2 decoration-muted-foreground/20">로그인</span>
+                  {t("landing.alreadyHaveAccount")} <span className="text-[#0075de] font-medium">{t("auth.login")}</span>
                 </button>
               )}
+              <div className="flex justify-center">
+                <LanguageToggle />
+              </div>
             </div>
           </div>
           <AuthModal
@@ -874,16 +912,16 @@ export default function Home() {
 
       return (
         <div className="flex-1 bg-background min-h-screen">
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border/40">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-[rgba(0,0,0,0.08)]">
             <div className="max-w-5xl mx-auto px-6">
               <div className="flex items-center h-14 gap-2.5">
                 <button
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors flex-shrink-0"
                   onClick={() => setLandingPath(null)}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <h1 className="text-[14px] font-semibold tracking-tight">피드백이 필요한 프로젝트</h1>
+                <h1 className="text-[14px] font-semibold tracking-tight">{t("landing.projectsNeedingFeedback")}</h1>
               </div>
             </div>
           </div>
@@ -900,8 +938,8 @@ export default function Home() {
               }}
               onDelete={() => {}}
               onNew={() => {}}
-              emptyMessage="아직 피드백이 필요한 프로젝트가 없어요"
-              emptyDescription="조금만 기다려주세요"
+              emptyMessage={t("landing.noProjectsNeedingFeedback")}
+              emptyDescription={t("landing.pleaseWait")}
               showDelete={false}
               hideNewButton
               showAuthor
@@ -925,12 +963,12 @@ export default function Home() {
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2.5 mb-6">
             <button
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors flex-shrink-0"
               onClick={() => setLandingPath(null)}
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <h2 className="text-[14px] font-semibold">피드백 받기</h2>
+            <h2 className="text-[14px] font-semibold">{t("landing.receiveFeedback")}</h2>
           </div>
           <ImageUploader
             onImageSelected={handleImageSelected}
@@ -938,29 +976,29 @@ export default function Home() {
           />
           <div className="mt-6">
             {user ? (
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/35">
+              <div className="flex items-center justify-center gap-1.5 text-[13px] text-[#615d59]">
                 <span>{user.email}</span>
-                <span className="text-muted-foreground/20">·</span>
+                <span className="text-[#615d59]">·</span>
                 <button
                   className="hover:text-foreground transition-colors underline underline-offset-2 decoration-muted-foreground/20"
                   onClick={handleLogout}
                 >
-                  로그아웃
+                  {t("auth.logout")}
                 </button>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <Button
-                  className="w-full h-11 bg-foreground hover:bg-foreground/90 text-background font-semibold text-[13px]"
+                  className="w-full h-11 bg-[rgba(0,0,0,0.95)] hover:bg-[rgba(0,0,0,0.95)]/90 text-background font-semibold text-[13px]"
                   onClick={() => setShowAuth(true)}
                 >
-                  로그인하고 시작하기
+                  {t("landing.loginAndStart")}
                 </Button>
                 <button
-                  className="text-[11px] text-muted-foreground/35 hover:text-foreground transition-colors"
+                  className="text-[13px] text-[#615d59] hover:text-foreground transition-colors"
                   onClick={() => setShowAuth(true)}
                 >
-                  이미 계정이 있나요? <span className="underline underline-offset-2 decoration-muted-foreground/20">로그인</span>
+                  {t("landing.alreadyHaveAccount")} <span className="underline underline-offset-2 decoration-muted-foreground/20">{t("auth.login")}</span>
                 </button>
               </div>
             )}
@@ -979,10 +1017,10 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-background">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[rgba(0,0,0,0.1)] bg-background">
         <div className="flex items-center gap-2">
           <button
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors"
             onClick={handleSaveAndGoBack}
           >
             <ArrowLeft className="h-4 w-4" />
@@ -992,12 +1030,12 @@ export default function Home() {
           </h1>
           {activePage && (
             <>
-              <span className="text-muted-foreground/40">/</span>
+              <span className="text-[#615d59]">/</span>
               <a
                 href={activePage.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+                className="text-xs text-[#615d59] hover:text-foreground hover:underline transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 {activePage.title}
@@ -1012,10 +1050,10 @@ export default function Home() {
               size="sm"
               onClick={() => setShowExport(true)}
               disabled={annotations.length === 0}
-              className="bg-foreground text-background hover:bg-foreground/90"
+              className="bg-[rgba(0,0,0,0.95)] text-background hover:bg-[rgba(0,0,0,0.95)]/90"
             >
               <FileOutput className="h-4 w-4 mr-1.5" />
-              AI용 내보내기
+              {t("export.title")}
             </Button>
           )}
           {project.status === "applying" && user?.email === project.created_by && (
@@ -1025,7 +1063,7 @@ export default function Home() {
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              반영 완료
+              {t("export.markCompleted")}
             </Button>
           )}
           {project.status === "completed" && (
@@ -1034,7 +1072,7 @@ export default function Home() {
               size="sm"
               onClick={() => setShowComplete(true)}
             >
-              Before / After 보기
+              {t("export.beforeAfter")}
             </Button>
           )}
           {project.status === "completed" && user?.email === project.created_by && (
@@ -1043,7 +1081,7 @@ export default function Home() {
               size="sm"
               onClick={handleResetToReceiving}
             >
-              다시 피드백 받기
+              {t("export.resetToReceiving")}
             </Button>
           )}
         </div>
@@ -1083,16 +1121,16 @@ export default function Home() {
 
         {/* Comment sidebar */}
         <div className="w-80 border-l bg-background flex flex-col">
-          <div className="px-4 py-3 border-b border-border/50">
+          <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.1)]">
             <div className="flex items-center justify-between">
-              <h2 className="text-[15px] font-semibold">피드백</h2>
-              <span className="text-[12px] text-muted-foreground/50">{annotations.length}</span>
+              <h2 className="text-[15px] font-semibold">{t("review.feedback")}</h2>
+              <span className="text-sm text-[#615d59]">{annotations.length}</span>
             </div>
             {project.status === "applying" && (
-              <p className="text-[12px] text-amber-600 mt-1">피드백 적용 중 · 새 피드백 추가 불가</p>
+              <p className="text-sm text-amber-600 mt-1">{t("review.applyingFeedback")}</p>
             )}
             {project.status === "completed" && (
-              <p className="text-[12px] text-emerald-600 mt-1">업데이트 완료</p>
+              <p className="text-sm text-emerald-600 mt-1">{t("review.updateComplete")}</p>
             )}
           </div>
           <div className="flex-1 overflow-hidden">
@@ -1120,7 +1158,7 @@ export default function Home() {
         <Dialog open={showExport} onOpenChange={setShowExport}>
           <DialogContent className="sm:!max-w-4xl !max-w-[90vw] h-[80vh] flex flex-col !p-0 !gap-0 overflow-hidden">
             <DialogHeader className="px-5 py-3 border-b">
-              <DialogTitle>AI용 내보내기</DialogTitle>
+              <DialogTitle>{t("export.title")}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-hidden min-h-0">
               <ExportPreview
@@ -1138,7 +1176,7 @@ export default function Home() {
         <DialogContent className="sm:!max-w-2xl !max-w-[90vw] !p-0 !gap-0 overflow-hidden">
           <DialogHeader className="px-5 py-3 border-b">
             <DialogTitle>
-              {project.completedImageUrl ? "Before / After" : "반영 완료"}
+              {project.completedImageUrl ? "Before / After" : t("export.markCompleted")}
             </DialogTitle>
           </DialogHeader>
           <div className="overflow-auto max-h-[75vh]">
@@ -1161,7 +1199,7 @@ export default function Home() {
       <Dialog open={showAddPage} onOpenChange={setShowAddPage}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>페이지 추가</DialogTitle>
+            <DialogTitle>{t("review.addPage")}</DialogTitle>
           </DialogHeader>
           <ImageUploader
             onImageSelected={handleAddPageImage}
@@ -1174,10 +1212,10 @@ export default function Home() {
       <Dialog open={showPagePicker} onOpenChange={setShowPagePicker}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>발견된 페이지</DialogTitle>
+            <DialogTitle>{t("review.discoveredPages")}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            이 사이트에서 {discoveredLinks.length}개의 페이지를 찾았어요.
+          <p className="text-sm text-[#615d59]">
+            {t("review.discoveredPagesDesc").replace("{count}", String(discoveredLinks.length))}
           </p>
           <div className="max-h-72 overflow-auto space-y-2 mt-2">
               {discoveredLinks.map((link, i) => {
@@ -1188,20 +1226,20 @@ export default function Home() {
                 return (
                   <div
                     key={link.url}
-                    className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+                    className={`flex items-center gap-3 p-3 rounded-md transition-colors ${
                       alreadyAdded
                         ? "bg-primary/5 border border-primary/20"
-                        : "border border-border/50 hover:border-border"
+                        : "border border-[rgba(0,0,0,0.1)] hover:border-[rgba(0,0,0,0.1)]"
                     }`}
                   >
-                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-[#f6f5f4]flex items-center justify-center text-xs font-medium text-[#615d59]">
                       {i + 1}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">
                         {link.text}
                       </p>
-                      <p className="text-[11px] text-muted-foreground/60 truncate">
+                      <p className="text-[13px] text-[#615d59] truncate">
                         {new URL(link.url).pathname}
                       </p>
                     </div>
@@ -1213,10 +1251,10 @@ export default function Home() {
                       className="flex-shrink-0 h-8 text-xs"
                     >
                       {isCapturing
-                        ? "캡처 중..."
+                        ? t("review.capturing")
                         : alreadyAdded
-                          ? "추가됨"
-                          : "추가"}
+                          ? t("review.added")
+                          : t("review.add")}
                     </Button>
                   </div>
                 );
@@ -1226,7 +1264,7 @@ export default function Home() {
             className="w-full mt-2"
             onClick={() => setShowPagePicker(false)}
           >
-            완료
+            {t("review.done")}
           </Button>
         </DialogContent>
       </Dialog>
@@ -1238,14 +1276,33 @@ export default function Home() {
       />
 
       {/* Profile modal */}
-      {viewProfileEmail && (
-        <ProfileViewModal
-          open={!!viewProfileEmail}
-          onOpenChange={(open) => { if (!open) setViewProfileEmail(null); }}
-          email={viewProfileEmail}
-          currentUserEmail={user?.email}
-        />
-      )}
+      {viewProfileEmail && (() => {
+        // Calculate contribution stats for viewed profile
+        const allStoredProjects = [...(myProjects as StoredProject[]), ...(publicProjects as StoredProject[])];
+        const seen = new Set<string>();
+        let totalComments = 0;
+        let appliedComments = 0;
+        let projectCount = 0;
+        for (const sp of allStoredProjects) {
+          if (seen.has(sp.project.id)) continue;
+          seen.add(sp.project.id);
+          const anns = Object.values(sp.annotations).flat().filter(a => a.author_name === viewProfileEmail);
+          if (anns.length > 0) {
+            totalComments += anns.length;
+            appliedComments += anns.filter(a => (a as { applied?: boolean }).applied).length;
+            projectCount++;
+          }
+        }
+        return (
+          <ProfileViewModal
+            open={!!viewProfileEmail}
+            onOpenChange={(open) => { if (!open) setViewProfileEmail(null); }}
+            email={viewProfileEmail}
+            currentUserEmail={user?.email}
+            contribution={{ totalComments, appliedComments, projectCount }}
+          />
+        );
+      })()}
     </div>
   );
 }

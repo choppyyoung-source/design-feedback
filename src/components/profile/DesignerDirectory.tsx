@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   SPECIALTY_LABELS,
 } from "@/lib/profiles";
 import { getEmoji } from "@/lib/avatar";
+import { useT } from "@/lib/i18n";
 
 interface DesignerDirectoryProps {
   onSelectProfile: (email: string) => void;
@@ -25,9 +26,12 @@ export function DesignerDirectory({
   onBack,
   currentUserEmail,
 }: DesignerDirectoryProps) {
-  const [profiles] = useState<UserProfile[]>(() =>
-    typeof window !== "undefined" ? getAllProfiles() : []
-  );
+  const t = useT();
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    getAllProfiles().then(setProfiles);
+  }, []);
   const [search, setSearch] = useState("");
 
   const filtered = profiles
@@ -47,34 +51,34 @@ export function DesignerDirectory({
       <div className="flex items-center gap-1.5">
         {onBack && (
           <button
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors flex-shrink-0"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors flex-shrink-0"
             onClick={onBack}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#a39e98]" />
           <Input
-            placeholder="이름, 이메일, 직군으로 검색..."
+            placeholder={t("directory.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-10 bg-white border-border/70"
+            className="pl-10 h-10 bg-white border-[rgba(0,0,0,0.1)]"
           />
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <div>
-          <div className="p-14 text-center bg-card border border-border/70 rounded-2xl">
-            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <div className="p-14 text-center bg-card border border-[rgba(0,0,0,0.1)] rounded-md">
+            <div className="w-12 h-12 rounded-md bg-[#f6f5f4]flex items-center justify-center mx-auto mb-4">
               <span className="text-xl">🔍</span>
             </div>
             <p className="text-sm font-medium mb-1">
-              {search ? "검색 결과가 없어요" : "아직 등록된 디자이너가 없어요"}
+              {search ? t("directory.noResults") : t("directory.noDesigners")}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {search ? "다른 키워드로 검색해보세요" : "첫 번째 디자이너가 되어보세요"}
+            <p className="text-xs text-[#615d59]">
+              {search ? t("directory.tryOtherKeyword") : t("directory.beFirst")}
             </p>
           </div>
         </div>
@@ -91,12 +95,12 @@ export function DesignerDirectory({
             return (
               <div key={profile.email} className="flex">
                 <div
-                  className="p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all border border-border/70 bg-card overflow-hidden rounded-2xl w-full flex flex-col"
+                  className="p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all border border-[rgba(0,0,0,0.1)] bg-card overflow-hidden rounded-md w-full flex flex-col"
                   onClick={() => onSelectProfile(profile.email)}
                 >
                   {/* Top: Avatar + Info */}
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-muted/40 flex items-center justify-center text-lg flex-shrink-0">
+                    <div className="w-10 h-10 rounded-md bg-[#f6f5f4] flex items-center justify-center text-lg flex-shrink-0">
                       {getEmoji(profile.email)}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -105,12 +109,12 @@ export function DesignerDirectory({
                           {profile.name}
                         </p>
                         {isMe && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex-shrink-0">
-                            나
+                          <span className="text-[13px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex-shrink-0">
+                            {t("review.me")}
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-primary/60 font-medium">
+                      <p className="text-[13px] text-primary/60 font-medium">
                         {SPECIALTY_LABELS[profile.specialty]}
                       </p>
                     </div>
@@ -118,30 +122,30 @@ export function DesignerDirectory({
                     {avgRating !== null ? (
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        <span className="text-[11px] font-semibold">{avgRating.toFixed(1)}</span>
-                        <span className="text-[10px] text-muted-foreground/50">({profile.ratings.length})</span>
+                        <span className="text-[13px] font-semibold">{avgRating.toFixed(1)}</span>
+                        <span className="text-[13px] text-[#a39e98]">({profile.ratings.length})</span>
                       </div>
                     ) : (
-                      <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">후기 없음</span>
+                      <span className="text-[13px] text-[#a39e98] flex-shrink-0">{t("profile.noReview")}</span>
                     )}
                   </div>
 
                   {/* Bio */}
-                  <p className="text-[12px] text-muted-foreground/60 line-clamp-2 mt-2.5 leading-relaxed flex-1">
-                    {profile.bio || "아직 한줄 소개를 등록하지 않았어요"}
+                  <p className="text-sm text-[#615d59] line-clamp-2 mt-2.5 leading-relaxed flex-1">
+                    {profile.bio || t("profile.noBioYet")}
                   </p>
 
                   {/* Request button */}
                   {!isMe && onRequestFeedback && (
                     <Button
                       size="sm"
-                      className="w-full mt-3 h-8 text-[12px] bg-foreground hover:bg-foreground/90 text-background"
+                      className="w-full mt-3 h-8 text-sm bg-[rgba(0,0,0,0.95)] hover:bg-[rgba(0,0,0,0.95)]/90 text-background"
                       onClick={(e) => {
                         e.stopPropagation();
                         onRequestFeedback(profile.email);
                       }}
                     >
-                      피드백 요청하기
+                      {t("profile.requestFeedback")}
                     </Button>
                   )}
                 </div>
