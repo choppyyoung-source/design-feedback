@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
       // Vercel: use Microlink API for screenshot + fetch for link extraction
       const targetUrl = parsedUrl.toString();
 
-      // 1) Screenshot via Microlink
-      const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1440&viewport.height=900&waitForTimeout=2000`;
+      // 1) Screenshot via Microlink (fullPage + force to bypass cache)
+      const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1440&viewport.height=900&screenshot.fullPage=true&force=true&waitForTimeout=2000`;
       const screenshotRes = await fetch(microlinkUrl, {
         signal: AbortSignal.timeout(25000),
       });
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
 
       const screenshot = await page.screenshot({
         type: "png",
-        fullPage: false,
+        fullPage: true,
       });
       const screenshotBase64 = `data:image/png;base64,${Buffer.from(screenshot).toString("base64")}`;
 

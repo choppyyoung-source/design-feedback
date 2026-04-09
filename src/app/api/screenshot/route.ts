@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     if (process.env.VERCEL) {
       // Vercel: use Microlink screenshot API (free, no browser needed)
       const targetUrl = parsedUrl.toString();
-      const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1440&viewport.height=900&waitForTimeout=2000`;
+      const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false&embed=screenshot.url&viewport.width=1440&viewport.height=900&screenshot.fullPage=true&force=true&waitForTimeout=2000`;
 
       const res = await fetch(microlinkUrl, { signal: AbortSignal.timeout(20000) });
 
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
       const screenshot = await page.screenshot({
         type: "png",
-        fullPage: false,
+        fullPage: true,
       });
 
       await browser.close();
