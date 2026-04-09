@@ -487,7 +487,11 @@ export default function Home() {
     // Wait for auth to resolve before deciding landing vs dashboard
     // (prevents landing page flash when user is already logged in)
     if (authLoading) {
-      return <div className="flex-1 min-h-screen bg-background" />;
+      return (
+        <div className="flex-1 min-h-screen bg-background flex items-center justify-center">
+          <div className="h-6 w-6 rounded-full border-2 border-[rgba(0,0,0,0.1)] border-t-[rgba(0,0,0,0.6)] animate-spin" />
+        </div>
+      );
     }
 
     // Dashboard if logged in with projects
@@ -533,7 +537,17 @@ export default function Home() {
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-[rgba(0,0,0,0.08)]">
             <div className="max-w-5xl mx-auto px-6">
               <div className="flex items-center justify-between h-14">
-                <h1 className="text-sm font-bold tracking-tight cursor-pointer" onClick={() => window.location.reload()}>Design Feedback</h1>
+                <h1
+                  className="text-sm font-bold tracking-tight cursor-pointer"
+                  onClick={() => {
+                    setProject(null);
+                    setLandingPath(null);
+                    setShowUpload(false);
+                    setDashboardTab("requested");
+                  }}
+                >
+                  Design Feedback
+                </h1>
                 <button
                   className="text-[13px] text-[#615d59] hover:text-foreground transition-colors"
                   onClick={handleLogout}
