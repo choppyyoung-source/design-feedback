@@ -38,10 +38,28 @@ type ReviewItem = { review: Review; annotations: Annotation[]; updatedAt: string
  *   - completed: Green (#1aae39)
  */
 
-const STATUS_PILL: Record<ProjectStatus, { labelKey: string; dotColor: string }> = {
-  receiving: { labelKey: "status.receiving", dotColor: "#0075de" },
-  applying:  { labelKey: "status.applyingShort", dotColor: "#dd5b00" },
-  completed: { labelKey: "status.completedShort", dotColor: "#1aae39" },
+const STATUS_PILL: Record<
+  ProjectStatus,
+  { labelKey: string; dotColor: string; bg: string; text: string }
+> = {
+  receiving: {
+    labelKey: "status.receiving",
+    dotColor: "#0075de",
+    bg: "#f2f9ff",
+    text: "#097fe8",
+  },
+  applying: {
+    labelKey: "status.applyingShort",
+    dotColor: "#dd5b00",
+    bg: "#fff5ec",
+    text: "#c44d00",
+  },
+  completed: {
+    labelKey: "status.completedShort",
+    dotColor: "#1aae39",
+    bg: "#edfaef",
+    text: "#158a2d",
+  },
 };
 
 // DESIGN.md §2 Shadows — Card Shadow (Level 2): 4-layer stack
@@ -243,14 +261,14 @@ export function ReviewGrid({
 
                 {/* Status + meta row */}
                 <div className="flex items-center gap-2" style={{ marginTop: 10 }}>
-                  {/* Pill Badge Button: #f2f9ff bg, #097fe8 text, 9999px radius, 12px weight 600 */}
+                  {/* Pill Badge Button: per-status bg/text, 9999px radius, 12px weight 600 */}
                   <span
                     className="inline-flex items-center gap-1.5"
                     style={{
                       padding: "3px 10px",
                       borderRadius: 9999,
-                      backgroundColor: "#f2f9ff",
-                      color: "#097fe8",
+                      backgroundColor: pill.bg,
+                      color: pill.text,
                       fontSize: 12,
                       fontWeight: 600,
                       letterSpacing: "0.125px",
