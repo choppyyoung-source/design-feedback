@@ -311,10 +311,11 @@ export function ProfileSection({
               </div>
             </div>
 
-            {/* Contribution stats */}
-            {contribution && contribution.totalComments > 0 && (
-              <ContributionTabs contribution={contribution} />
-            )}
+            {/* Contribution stats — show if user has any activity (gave feedback OR has projects) */}
+            {contribution &&
+              (contribution.totalComments > 0 || contribution.projectCount > 0) && (
+                <ContributionTabs contribution={contribution} />
+              )}
 
             {/* Links row */}
             <div className="flex justify-center gap-1.5 mt-4">
