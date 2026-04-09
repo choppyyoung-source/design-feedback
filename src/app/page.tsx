@@ -648,7 +648,10 @@ export default function Home() {
                   const feedbackItems: { id: string; comment: string; severity: string; projectName: string; createdAt: string; isApplied: boolean }[] = [];
                   const feedbackProjectMap = new Map<string, { id: string; name: string; feedbackCount: number; imageUrl?: string }>();
                   const requestedProjects: { id: string; name: string; feedbackCount: number; imageUrl?: string }[] = [];
-                  myProjects.forEach((sp) => {
+                  // myProjects = 내가 만든 프로젝트, publicProjects = 남이 만든 공개 프로젝트
+                  // 내 코멘트는 publicProjects 쪽에 있어서 둘 다 훑어야 함
+                  const allProjectsForStats = [...myProjects, ...publicProjects];
+                  allProjectsForStats.forEach((sp) => {
                     const isOwner = sp.project.created_by === user.email;
                     const allAnnotations = Object.values(sp.annotations).flat() as Annotation[];
                     if (isOwner) {
@@ -730,7 +733,9 @@ export default function Home() {
                     const feedbackItems: { id: string; comment: string; severity: string; projectName: string; createdAt: string; isApplied: boolean }[] = [];
                     const feedbackProjectMap = new Map<string, { id: string; name: string; feedbackCount: number; imageUrl?: string }>();
                     const requestedProjects: { id: string; name: string; feedbackCount: number; imageUrl?: string }[] = [];
-                    myProjects.forEach((sp) => {
+                    // 이 디자이너가 만든 프로젝트는 publicProjects에, 내가 만든 프로젝트에 이 디자이너가 남긴 코멘트는 myProjects에
+                    const allProjectsForStats = [...myProjects, ...publicProjects];
+                    allProjectsForStats.forEach((sp) => {
                       const isOwner = sp.project.created_by === viewProfileEmail;
                       const allAnnotations = Object.values(sp.annotations).flat() as Annotation[];
                       if (isOwner) {
