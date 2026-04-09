@@ -67,18 +67,36 @@ export async function getUserProjects(email: string): Promise<StoredProject[]> {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+// Local entries younger than this are treated as "not yet synced" and kept
+// even when Supabase doesn't return them. Older ghosts get pruned — this is
+// what lets a Supabase-side delete actually disappear from the UI instead of
+// being re-injected from cache forever.
+const LS_SYNC_GRACE_MS = 30_000;
+
+function _isRecent(sp: StoredProject): boolean {
+  return Date.now() - new Date(sp.updatedAt).getTime() < LS_SYNC_GRACE_MS;
+}
+
 export async function getPublicProjects(): Promise<StoredProject[]> {
   if (isSupabaseConfigured()) {
     try {
       const result = await dbGetPublicProjects();
-      // Merge with localStorage results for local projects not yet synced
+      const supabaseIds = new Set(result.map((r) => r.project.id));
       const lsAll = _lsGetAll();
-      const lsPublic = Object.values(lsAll)
-        .filter((p) => p.project.created_by !== "" && (p.project.status ?? "receiving") === "receiving");
-      const ids = new Set(result.map((r) => r.project.id));
-      for (const lp of lsPublic) {
-        if (!ids.has(lp.project.id)) result.push(lp);
+      let mutated = false;
+      for (const [id, sp] of Object.entries(lsAll)) {
+        const isPublic =
+          sp.project.created_by !== "" && (sp.project.status ?? "receiving") === "receiving";
+        if (!isPublic || supabaseIds.has(id)) continue;
+        // Supabase doesn't know about this id. Prune stale ghosts; keep fresh unsynced writes.
+        if (_isRecent(sp)) {
+          result.push(sp);
+        } else {
+          delete lsAll[id];
+          mutated = true;
+        }
       }
+      if (mutated) _lsSaveAll(lsAll);
       return result.sort((a, b) => b.project.created_at.localeCompare(a.project.created_at));
     } catch (e) { console.error("Supabase getPublicProjects:", e); }
   }
@@ -92,14 +110,20 @@ export async function getCompletedProjects(): Promise<StoredProject[]> {
   if (isSupabaseConfigured()) {
     try {
       const result = await dbGetCompletedProjects();
-      // Merge with localStorage completed projects for local-only items
+      const supabaseIds = new Set(result.map((r) => r.project.id));
       const lsAll = _lsGetAll();
-      const lsCompleted = Object.values(lsAll)
-        .filter((p) => p.project.created_by !== "" && p.project.status === "completed");
-      const ids = new Set(result.map((r) => r.project.id));
-      for (const lp of lsCompleted) {
-        if (!ids.has(lp.project.id)) result.push(lp);
+      let mutated = false;
+      for (const [id, sp] of Object.entries(lsAll)) {
+        const isCompleted = sp.project.created_by !== "" && sp.project.status === "completed";
+        if (!isCompleted || supabaseIds.has(id)) continue;
+        if (_isRecent(sp)) {
+          result.push(sp);
+        } else {
+          delete lsAll[id];
+          mutated = true;
+        }
       }
+      if (mutated) _lsSaveAll(lsAll);
       return result.sort((a, b) => {
         const aDate = a.project.completedAt ?? a.updatedAt;
         const bDate = b.project.completedAt ?? b.updatedAt;
