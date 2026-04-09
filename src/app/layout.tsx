@@ -17,12 +17,12 @@ export const metadata: Metadata = {
   title: "Design Feedback — Get design reviews, apply with AI",
   description:
     "Upload your design or paste a link. Get actionable feedback from designers, then apply it directly with AI. Free, no sign-up required.",
-  metadataBase: new URL("https://design-feedback.pages.dev"),
+  metadataBase: new URL("https://design-feedback-hykim-permissionlabs-projects.vercel.app"),
   openGraph: {
     title: "Design Feedback — Get design reviews, apply with AI",
     description:
       "Upload your design or paste a link. Get actionable feedback from designers, then apply it directly with AI.",
-    url: "https://design-feedback.pages.dev",
+    url: "https://design-feedback-hykim-permissionlabs-projects.vercel.app",
     siteName: "Design Feedback",
     locale: "en_US",
     type: "website",
