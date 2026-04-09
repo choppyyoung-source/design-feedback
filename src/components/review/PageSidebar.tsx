@@ -27,7 +27,7 @@ export function PageSidebar({
 }: PageSidebarProps) {
   const t = useT();
   return (
-    <div className="w-52 border-r border-[rgba(0,0,0,0.1)] bg-[#f6f5f4]/50 flex flex-col">
+    <div className="hidden md:flex w-52 border-r border-[rgba(0,0,0,0.1)] bg-[#f6f5f4]/50 flex-col">
       <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.1)] flex items-center justify-between">
         <span className="text-[13px] font-semibold text-[#615d59]">{t("review.pages")}</span>
         {isOwner && (

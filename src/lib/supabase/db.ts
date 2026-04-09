@@ -117,7 +117,8 @@ async function loadAnnotationsForProject(projectId: string): Promise<Record<stri
   if (!annRows?.length) return {};
 
   // Load all replies for these annotations
-  const annIds = annRows.map((a) => a.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const annIds = annRows.map((a: any) => a.id);
   const { data: replyRows } = await supabase
     .from("annotation_replies")
     .select("*")
@@ -227,7 +228,8 @@ async function loadRatings(email: string): Promise<UserProfile["ratings"]> {
     .eq("target_email", email)
     .order("created_at", { ascending: false });
 
-  return (data ?? []).map((r) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({
     from: r.from_email,
     score: r.score,
     comment: r.comment,

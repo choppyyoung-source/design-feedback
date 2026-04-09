@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
-});
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY not set");
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
+}
 
 const PLAN_PRICES: Record<string, number> = {
   basic: 900,    // $9.00 in cents
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
     }
 
     const applicationFee = Math.round(amount * (PLATFORM_FEE_PERCENT / 100));
+    const stripe = getStripe();
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

@@ -77,6 +77,7 @@ export default function Home() {
   const [showAuth, setShowAuth] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showAddPage, setShowAddPage] = useState(false);
+  const [showMobileComments, setShowMobileComments] = useState(false);
   const [showPagePicker, setShowPagePicker] = useState(false);
   const [discoveredLinks, setDiscoveredLinks] = useState<
     { url: string; text: string; ogImage?: string | null }[]
@@ -85,12 +86,8 @@ export default function Home() {
   const [dashboardTab, setDashboardTab] = useState<"requested" | "commented" | "directory" | "profile">("requested");
   const [viewProfileEmail, setViewProfileEmail] = useState<string | null>(null);
   const [requestingDesigner, setRequestingDesigner] = useState<string | null>(null);
-  const [myProjects, setMyProjects] = useState<
-    ReturnType<typeof getUserProjects>
-  >([]);
-  const [publicProjects, setPublicProjects] = useState<
-    ReturnType<typeof getPublicProjects>
-  >([]);
+  const [myProjects, setMyProjects] = useState<StoredProject[]>([]);
+  const [publicProjects, setPublicProjects] = useState<StoredProject[]>([]);
   const [landingPath, setLandingPath] = useState<"give" | "receive" | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
@@ -137,11 +134,13 @@ export default function Home() {
       }
     };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase.auth.getSession().then(({ data: { session } }: any) => {
       setUserFromSession(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setUserFromSession(session);
     });
 
@@ -950,7 +949,7 @@ export default function Home() {
             onOpenChange={setShowAuth}
             onAuth={(authedUser) => {
               handleAuth(authedUser);
-              setPublicProjects(getPublicProjects().filter((p) => p.project.created_by !== authedUser.email));
+              getPublicProjects().then((ps) => setPublicProjects(ps.filter((p) => p.project.created_by !== authedUser.email)));
             }}
           />
         </div>
@@ -1017,34 +1016,34 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[rgba(0,0,0,0.1)] bg-background">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-[rgba(0,0,0,0.1)] bg-background gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors"
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors flex-shrink-0"
             onClick={handleSaveAndGoBack}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <h1 className="text-sm font-semibold truncate max-w-[200px]">
+          <h1 className="text-sm font-semibold truncate max-w-[120px] sm:max-w-[200px]">
             {project.name}
           </h1>
           {activePage && (
-            <>
+            <span className="hidden sm:contents">
               <span className="text-[#615d59]">/</span>
               <a
                 href={activePage.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[#615d59] hover:text-foreground hover:underline transition-colors"
+                className="text-xs text-[#615d59] hover:text-foreground hover:underline transition-colors truncate max-w-[150px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {activePage.title}
               </a>
-            </>
+            </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {(!project.status || project.status === "receiving") && user?.email === project.created_by && (
             <Button
               size="sm"
@@ -1119,12 +1118,38 @@ export default function Home() {
           )}
         </div>
 
+        {/* Mobile toggle for comment sidebar */}
+        <button
+          className="md:hidden fixed bottom-4 right-4 z-30 w-12 h-12 rounded-full bg-[rgba(0,0,0,0.95)] text-white flex items-center justify-center shadow-lg"
+          onClick={() => setShowMobileComments(!showMobileComments)}
+        >
+          <MessageCircle className="h-5 w-5" />
+          {annotations.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center">
+              {annotations.length}
+            </span>
+          )}
+        </button>
+
         {/* Comment sidebar */}
-        <div className="w-80 border-l bg-background flex flex-col">
+        <div className={`
+          fixed md:relative inset-0 md:inset-auto z-20 md:z-auto
+          w-full md:w-80 border-l bg-background flex flex-col
+          transition-transform duration-200
+          ${showMobileComments ? "translate-x-0" : "translate-x-full md:translate-x-0"}
+        `}>
           <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.1)]">
             <div className="flex items-center justify-between">
               <h2 className="text-[15px] font-semibold">{t("review.feedback")}</h2>
-              <span className="text-sm text-[#615d59]">{annotations.length}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[#615d59]">{annotations.length}</span>
+                <button
+                  className="md:hidden w-7 h-7 rounded-lg flex items-center justify-center text-[#615d59] hover:text-foreground hover:bg-[#f6f5f4] transition-colors"
+                  onClick={() => setShowMobileComments(false)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             {project.status === "applying" && (
               <p className="text-sm text-amber-600 mt-1">{t("review.applyingFeedback")}</p>
