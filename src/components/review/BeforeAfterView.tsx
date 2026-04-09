@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, Link, Loader2 } from "lucide-react";
+import { Upload, Link, Loader2, RefreshCw, ArrowLeft } from "lucide-react";
+import { getEmoji } from "@/lib/avatar";
+import { getProfile, type UserProfile } from "@/lib/profiles";
+import type { Annotation } from "@/types";
 
 interface BeforeAfterViewProps {
   beforeImageUrl: string;
@@ -10,6 +13,8 @@ interface BeforeAfterViewProps {
   projectName: string;
   onCaptureAfter: (imageDataUrl: string) => void;
   onUploadAfter: (imageDataUrl: string) => void;
+  /** Annotations that were marked as applied (already filtered). */
+  appliedAnnotations?: Annotation[];
 }
 
 export function BeforeAfterView({
@@ -18,6 +23,7 @@ export function BeforeAfterView({
   projectName,
   onCaptureAfter,
   onUploadAfter,
+  appliedAnnotations = [],
 }: BeforeAfterViewProps) {
   const [sliderPos, setSliderPos] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,6 +31,24 @@ export function BeforeAfterView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [captureUrl, setCaptureUrl] = useState("");
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isReplacing, setIsReplacing] = useState(false);
+  const [profiles, setProfiles] = useState<Record<string, UserProfile | null>>({});
+
+  // Fetch profiles for unique annotation authors
+  useEffect(() => {
+    if (!appliedAnnotations.length) return;
+    const emails = Array.from(new Set(appliedAnnotations.map((a) => a.author_name)));
+    let cancelled = false;
+    Promise.all(
+      emails.map(async (email) => [email, await getProfile(email)] as const)
+    ).then((entries) => {
+      if (cancelled) return;
+      setProfiles(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedAnnotations]);
 
   const handleMove = (clientX: number) => {
     if (!containerRef.current) return;
@@ -45,6 +69,8 @@ export function BeforeAfterView({
       const data = await res.json();
       if (res.ok) {
         onCaptureAfter(data.image);
+        setIsReplacing(false);
+        setCaptureUrl("");
       }
     } catch {
       /* ignore */
@@ -59,19 +85,43 @@ export function BeforeAfterView({
     const reader = new FileReader();
     reader.onload = () => {
       onUploadAfter(reader.result as string);
+      setIsReplacing(false);
     };
     reader.readAsDataURL(file);
   };
 
-  // No after image yet → show upload prompt
-  if (!afterImageUrl) {
+  // Upload prompt — shown when there's no after image, or user is replacing it
+  const showUploadView = !afterImageUrl || isReplacing;
+
+  if (showUploadView) {
     return (
       <div className="flex flex-col items-center gap-6 py-8 px-6">
         <div className="text-center">
-          <h3 className="text-lg font-semibold mb-1">피드백 반영 완료!</h3>
-          <p className="text-sm text-muted-foreground">
-            업데이트된 화면을 올려주세요. Before/After를 비교할 수 있어요.
-          </p>
+          {isReplacing ? (
+            <>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <button
+                  type="button"
+                  onClick={() => setIsReplacing(false)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="뒤로"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <h3 className="text-lg font-semibold">After 이미지 교체</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                새로운 화면을 다시 올려주세요.
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold mb-1">피드백 반영 완료!</h3>
+              <p className="text-sm text-muted-foreground">
+                업데이트된 화면을 올려주세요. Before/After를 비교할 수 있어요.
+              </p>
+            </>
+          )}
         </div>
 
         {/* URL capture */}
@@ -126,14 +176,16 @@ export function BeforeAfterView({
           />
         </div>
 
-        {/* Before preview */}
+        {/* Current image preview */}
         <div className="w-full max-w-md">
-          <p className="text-xs text-muted-foreground mb-2">Before</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            {isReplacing ? "현재 After" : "Before"}
+          </p>
           <div className="rounded-lg overflow-hidden border bg-muted/30">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={beforeImageUrl}
-              alt="Before"
+              src={isReplacing ? afterImageUrl : beforeImageUrl}
+              alt={isReplacing ? "Current After" : "Before"}
               className="w-full object-cover object-top max-h-48"
             />
           </div>
@@ -142,26 +194,55 @@ export function BeforeAfterView({
     );
   }
 
-  // Both images → slider comparison
+  // Group applied annotations by author
+  const byAuthor = appliedAnnotations.reduce<Record<string, Annotation[]>>(
+    (acc, a) => {
+      (acc[a.author_name] ||= []).push(a);
+      return acc;
+    },
+    {}
+  );
+  const authorEntries = Object.entries(byAuthor);
+
+  // Comparison view
   return (
     <div className="flex flex-col gap-4 p-6">
-      <div className="text-center">
-        <h3 className="text-lg font-semibold mb-1">Before / After</h3>
-        <p className="text-sm text-muted-foreground">
-          슬라이더를 움직여서 비교해보세요
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 text-center">
+          <h3 className="text-lg font-semibold mb-1">Before / After</h3>
+          <p className="text-sm text-muted-foreground">
+            슬라이더를 움직여서 비교해보세요
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsReplacing(true)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted/50"
+          title="After 이미지 다시 올리기"
+        >
+          <RefreshCw className="h-3 w-3" />
+          다시 올리기
+        </button>
       </div>
 
       <div
         ref={containerRef}
         className="relative w-full max-w-2xl mx-auto rounded-xl overflow-hidden border shadow-sm cursor-col-resize select-none"
-        onMouseDown={() => { isDragging.current = true; }}
-        onMouseUp={() => { isDragging.current = false; }}
-        onMouseLeave={() => { isDragging.current = false; }}
-        onMouseMove={(e) => { if (isDragging.current) handleMove(e.clientX); }}
+        onMouseDown={() => {
+          isDragging.current = true;
+        }}
+        onMouseUp={() => {
+          isDragging.current = false;
+        }}
+        onMouseLeave={() => {
+          isDragging.current = false;
+        }}
+        onMouseMove={(e) => {
+          if (isDragging.current) handleMove(e.clientX);
+        }}
         onClick={(e) => handleMove(e.clientX)}
       >
-        {/* After (full width behind) */}
+        {/* After — normal flow, sets container height */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={afterImageUrl}
@@ -170,24 +251,23 @@ export function BeforeAfterView({
           draggable={false}
         />
 
-        {/* Before (clipped) */}
+        {/* Before — absolute overlay, clipped by slider, fit to same box as After */}
         <div
           className="absolute inset-0 overflow-hidden"
-          style={{ width: `${sliderPos}%` }}
+          style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={beforeImageUrl}
             alt="Before"
-            className="block"
-            style={{ width: containerRef.current?.offsetWidth ?? "100%" }}
+            className="w-full h-full block object-cover object-top"
             draggable={false}
           />
         </div>
 
         {/* Slider handle */}
         <div
-          className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+          className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
           style={{ left: `${sliderPos}%`, transform: "translateX(-50%)" }}
         >
           <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
@@ -199,13 +279,77 @@ export function BeforeAfterView({
         </div>
 
         {/* Labels */}
-        <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium">
+        <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium pointer-events-none">
           Before
         </div>
-        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium">
+        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium pointer-events-none">
           After
         </div>
       </div>
+
+      {/* Applied feedback section */}
+      {authorEntries.length > 0 && (
+        <div className="w-full max-w-2xl mx-auto mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-semibold">적용된 피드백</h4>
+            <span className="text-xs text-muted-foreground">
+              {appliedAnnotations.length}개 반영 · 디자이너 {authorEntries.length}명
+            </span>
+          </div>
+
+          {/* Author avatars */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {authorEntries.map(([email, items]) => {
+              const profile = profiles[email];
+              const name = profile?.name || email.split("@")[0];
+              return (
+                <div
+                  key={email}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/50 border border-border/50"
+                  title={email}
+                >
+                  <span className="text-base leading-none">{getEmoji(email)}</span>
+                  <span className="text-xs font-medium">{name}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {items.length}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Applied feedback list */}
+          <div className="space-y-2">
+            {appliedAnnotations.map((a) => {
+              const profile = profiles[a.author_name];
+              const name = profile?.name || a.author_name.split("@")[0];
+              return (
+                <div
+                  key={a.id}
+                  className="flex gap-3 p-3 rounded-lg border bg-card"
+                >
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-base">
+                    {getEmoji(a.author_name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-semibold">{name}</span>
+                      {a.area_label && (
+                        <span className="text-[10px] text-muted-foreground">
+                          · {a.area_label}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-foreground/80 whitespace-pre-wrap break-words">
+                      {a.comment}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

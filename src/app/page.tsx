@@ -1209,6 +1209,13 @@ export default function Home() {
               beforeImageUrl={activePage?.image_url ?? project.pages[0]?.image_url ?? ""}
               afterImageUrl={project.completedImageUrl}
               projectName={project.name}
+              appliedAnnotations={(() => {
+                const appliedIds = new Set(project.appliedCommentIds ?? []);
+                if (appliedIds.size === 0) return [];
+                return Object.values(pageAnnotations)
+                  .flat()
+                  .filter((a) => appliedIds.has(a.id));
+              })()}
               onCaptureAfter={(img) => {
                 handleAfterImageSet(img);
               }}
