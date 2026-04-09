@@ -232,6 +232,7 @@
   "comments.feedbackLeftCount": "개의 피드백을 남겼어요",
   "comments.projectsNeedingFeedback": "피드백이 필요한 프로젝트",
   "comments.noProjectsNeedingFeedback": "아직 피드백이 필요한 프로젝트가 없어요",
+  "comments.completedProjects": "피드백 끝난 프로젝트",
 
   "grid.newLink": "새 링크 올리기",
   "grid.getDesignReview": "디자인 리뷰를 받아보세요",

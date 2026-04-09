@@ -232,6 +232,7 @@
   "comments.feedbackLeftCount": " feedback left",
   "comments.projectsNeedingFeedback": "Projects Needing Feedback",
   "comments.noProjectsNeedingFeedback": "No projects need feedback yet",
+  "comments.completedProjects": "Completed Projects",
 
   "grid.newLink": "Add New Link",
   "grid.getDesignReview": "Get a design review",

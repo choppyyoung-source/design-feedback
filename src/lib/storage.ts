@@ -4,6 +4,7 @@ import {
   dbSaveProject,
   dbGetUserProjects,
   dbGetPublicProjects,
+  dbGetCompletedProjects,
   dbDeleteProject,
 } from "@/lib/supabase/db";
 
@@ -85,6 +86,35 @@ export async function getPublicProjects(): Promise<StoredProject[]> {
   return Object.values(all)
     .filter((p) => p.project.created_by !== "" && (p.project.status ?? "receiving") === "receiving")
     .sort((a, b) => b.project.created_at.localeCompare(a.project.created_at));
+}
+
+export async function getCompletedProjects(): Promise<StoredProject[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await dbGetCompletedProjects();
+      // Merge with localStorage completed projects for local-only items
+      const lsAll = _lsGetAll();
+      const lsCompleted = Object.values(lsAll)
+        .filter((p) => p.project.created_by !== "" && p.project.status === "completed");
+      const ids = new Set(result.map((r) => r.project.id));
+      for (const lp of lsCompleted) {
+        if (!ids.has(lp.project.id)) result.push(lp);
+      }
+      return result.sort((a, b) => {
+        const aDate = a.project.completedAt ?? a.updatedAt;
+        const bDate = b.project.completedAt ?? b.updatedAt;
+        return bDate.localeCompare(aDate);
+      });
+    } catch (e) { console.error("Supabase getCompletedProjects:", e); }
+  }
+  const all = _lsGetAll();
+  return Object.values(all)
+    .filter((p) => p.project.created_by !== "" && p.project.status === "completed")
+    .sort((a, b) => {
+      const aDate = a.project.completedAt ?? a.updatedAt;
+      const bDate = b.project.completedAt ?? b.updatedAt;
+      return bDate.localeCompare(aDate);
+    });
 }
 
 export async function deleteProject(id: string) {

@@ -195,6 +195,32 @@ export async function dbGetPublicProjects(): Promise<StoredProject[]> {
   return results;
 }
 
+export async function dbGetCompletedProjects(): Promise<StoredProject[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+
+  const { data } = await supabase
+    .from("projects")
+    .select("*")
+    .neq("created_by", "")
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false });
+
+  if (!data?.length) return [];
+
+  const results: StoredProject[] = [];
+  for (const row of data) {
+    const annotations = await loadAnnotationsForProject(row.id);
+    results.push({
+      project: rowToProject(row),
+      annotations,
+      updatedAt: row.updated_at,
+    });
+  }
+  return results;
+}
+
 export async function dbDeleteProject(id: string): Promise<void> {
   if (!isSupabaseConfigured()) return;
   const supabase = createClient();

@@ -27,6 +27,7 @@ import {
   saveProject,
   getUserProjects,
   getPublicProjects,
+  getCompletedProjects,
   getProject,
   deleteProject as deleteStoredProject,
   type StoredProject,
@@ -88,6 +89,7 @@ export default function Home() {
   const [requestingDesigner, setRequestingDesigner] = useState<string | null>(null);
   const [myProjects, setMyProjects] = useState<StoredProject[]>([]);
   const [publicProjects, setPublicProjects] = useState<StoredProject[]>([]);
+  const [completedProjects, setCompletedProjects] = useState<StoredProject[]>([]);
   const [landingPath, setLandingPath] = useState<"give" | "receive" | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -96,12 +98,19 @@ export default function Home() {
   useEffect(() => {
     const loadProjects = async (email: string | null) => {
       if (email) {
-        const [my, pub] = await Promise.all([getUserProjects(email), getPublicProjects()]);
+        const [my, pub, done] = await Promise.all([
+          getUserProjects(email),
+          getPublicProjects(),
+          getCompletedProjects(),
+        ]);
         setMyProjects(my);
         setPublicProjects(pub.filter((p) => p.project.created_by !== email));
+        setCompletedProjects(done.filter((p) => p.project.created_by !== email));
       } else {
         setMyProjects([]);
-        setPublicProjects(await getPublicProjects());
+        const [pub, done] = await Promise.all([getPublicProjects(), getCompletedProjects()]);
+        setPublicProjects(pub);
+        setCompletedProjects(done);
       }
     };
 
@@ -152,9 +161,14 @@ export default function Home() {
 
   const refreshProjects = useCallback(
     async (email: string) => {
-      const [my, pub] = await Promise.all([getUserProjects(email), getPublicProjects()]);
+      const [my, pub, done] = await Promise.all([
+        getUserProjects(email),
+        getPublicProjects(),
+        getCompletedProjects(),
+      ]);
       setMyProjects(my);
       setPublicProjects(pub.filter((p) => p.project.created_by !== email));
+      setCompletedProjects(done.filter((p) => p.project.created_by !== email));
     },
     []
   );
@@ -635,6 +649,27 @@ export default function Home() {
                 }))}
                 onSelectPublicProject={(r) => {
                   const item = publicProjects.find((sp) => sp.project.id === r.id);
+                  if (item) handleSelectProject(item.project, item.annotations);
+                }}
+                completedProjects={completedProjects.map((sp) => ({
+                  review: {
+                    id: sp.project.id,
+                    title: sp.project.name,
+                    image_url: sp.project.pages[0]?.image_url ?? "",
+                    image_width: sp.project.pages[0]?.image_width ?? 0,
+                    image_height: sp.project.pages[0]?.image_height ?? 0,
+                    design_context: null,
+                    share_token: "",
+                    created_by: sp.project.created_by,
+                    created_at: sp.project.created_at,
+                    updated_at: sp.project.updated_at,
+                  },
+                  annotations: Object.values(sp.annotations).flat(),
+                  updatedAt: sp.updatedAt,
+                  status: sp.project.status,
+                }))}
+                onSelectCompletedProject={(r) => {
+                  const item = completedProjects.find((sp) => sp.project.id === r.id);
                   if (item) handleSelectProject(item.project, item.annotations);
                 }}
               />

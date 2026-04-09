@@ -41,9 +41,11 @@ interface MyCommentsListProps {
   onExplore?: () => void;
   publicProjects?: PublicProjectItem[];
   onSelectPublicProject?: (r: Review) => void;
+  completedProjects?: PublicProjectItem[];
+  onSelectCompletedProject?: (r: Review) => void;
 }
 
-export function MyCommentsList({ comments, onSelectProject, onExplore, publicProjects, onSelectPublicProject }: MyCommentsListProps) {
+export function MyCommentsList({ comments, onSelectProject, onExplore, publicProjects, onSelectPublicProject, completedProjects, onSelectCompletedProject }: MyCommentsListProps) {
   const t = useT();
   // Group by project
   const grouped = comments.reduce<Record<string, CommentItem[]>>((acc, item) => {
@@ -174,6 +176,27 @@ export function MyCommentsList({ comments, onSelectProject, onExplore, publicPro
 
       {(!publicProjects || publicProjects.length === 0) && !hasComments && (
         <p className="text-xs text-[#a39e98] text-center">{t("comments.noProjectsNeedingFeedback")}</p>
+      )}
+
+      {/* Completed projects — finished feedback loops others can browse */}
+      {completedProjects && completedProjects.length > 0 && (
+        <section className="mt-6">
+          <div className="flex items-center gap-1.5 mb-5">
+            <span className="text-[13px] font-semibold">{t("comments.completedProjects")}</span>
+            <span className="text-[13px] text-[#a39e98]">{completedProjects.length}</span>
+          </div>
+          <ReviewGrid
+            reviews={completedProjects}
+            onSelect={(r) => onSelectCompletedProject?.(r)}
+            onDelete={() => {}}
+            onNew={() => {}}
+            emptyMessage=""
+            emptyDescription=""
+            showDelete={false}
+            hideNewButton
+            showAuthor
+          />
+        </section>
       )}
     </div>
   );
