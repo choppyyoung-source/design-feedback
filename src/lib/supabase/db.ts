@@ -241,6 +241,8 @@ function rowToProfile(row: Record<string, unknown>): UserProfile {
     isPrivate: row.is_private as boolean,
     // payout fields come from profile_private (RLS-protected),
     // loaded separately by dbGetProfile when the caller is the owner.
+    // acceptsPayment is the public flag kept in sync by a DB trigger.
+    acceptsPayment: (row.accepts_payment as boolean) ?? false,
     ratings: [], // loaded separately
     createdAt: row.created_at as string,
   };

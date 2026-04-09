@@ -52,6 +52,8 @@ export interface UserProfile {
   payoutMethod?: "paypal" | "bank" | null;
   paypalEmail?: string;
   bankInfo?: string; // 은행명 + 계좌번호 (자유 입력)
+  // Public flag derived from profile_private via DB trigger — safe for non-owners to read.
+  acceptsPayment?: boolean;
   ratings: {
     from: string;
     score: number;

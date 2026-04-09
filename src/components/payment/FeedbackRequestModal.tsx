@@ -80,7 +80,12 @@ export function FeedbackRequestModal({
     if (open && designerEmail) getProfile(designerEmail).then(setProfile);
   }, [open, designerEmail]);
 
-  const designerHasPayout = !!profile?.payoutMethod && (!!profile?.paypalEmail || !!profile?.bankInfo);
+  // Prefer the public flag (acceptsPayment) kept in sync by a DB trigger — non-owners
+  // cannot read the raw payout_private columns due to RLS. Fall back to the raw
+  // fields for localStorage/owner cases where those are still visible.
+  const designerHasPayout =
+    !!profile?.acceptsPayment ||
+    (!!profile?.payoutMethod && (!!profile?.paypalEmail || !!profile?.bankInfo));
 
   const handleSubmit = async () => {
     if (selectedPlan === "free") {
