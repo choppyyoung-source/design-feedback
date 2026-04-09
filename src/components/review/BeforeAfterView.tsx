@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, Link, Loader2, RefreshCw, ArrowLeft } from "lucide-react";
 import { getEmoji } from "@/lib/avatar";
 import { getProfile, type UserProfile } from "@/lib/profiles";
+import { useT } from "@/lib/i18n";
 import type { Annotation } from "@/types";
 
 interface BeforeAfterViewProps {
@@ -25,6 +26,7 @@ export function BeforeAfterView({
   onUploadAfter,
   appliedAnnotations = [],
 }: BeforeAfterViewProps) {
+  const t = useT();
   const [sliderPos, setSliderPos] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -104,21 +106,21 @@ export function BeforeAfterView({
                   type="button"
                   onClick={() => setIsReplacing(false)}
                   className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="뒤로"
+                  aria-label={t("beforeAfter.back")}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <h3 className="text-lg font-semibold">After 이미지 교체</h3>
+                <h3 className="text-lg font-semibold">{t("beforeAfter.replaceTitle")}</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                새로운 화면을 다시 올려주세요.
+                {t("beforeAfter.replaceDesc")}
               </p>
             </>
           ) : (
             <>
-              <h3 className="text-lg font-semibold mb-1">피드백 반영 완료!</h3>
+              <h3 className="text-lg font-semibold mb-1">{t("beforeAfter.appliedTitle")}</h3>
               <p className="text-sm text-muted-foreground">
-                업데이트된 화면을 올려주세요. Before/After를 비교할 수 있어요.
+                {t("beforeAfter.appliedDesc")}
               </p>
             </>
           )}
@@ -130,7 +132,7 @@ export function BeforeAfterView({
             <div className="flex-1 flex gap-2">
               <input
                 className="flex-1 h-9 rounded-lg border bg-background px-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="업데이트된 페이지 URL"
+                placeholder={t("beforeAfter.urlPlaceholder")}
                 value={captureUrl}
                 onChange={(e) => setCaptureUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCapture()}
@@ -146,7 +148,7 @@ export function BeforeAfterView({
                 ) : (
                   <>
                     <Link className="h-3.5 w-3.5 mr-1.5" />
-                    캡처
+                    {t("beforeAfter.capture")}
                   </>
                 )}
               </Button>
@@ -155,7 +157,7 @@ export function BeforeAfterView({
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">또는</span>
+            <span className="text-xs text-muted-foreground">{t("beforeAfter.or")}</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
@@ -165,7 +167,7 @@ export function BeforeAfterView({
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-3.5 w-3.5 mr-1.5" />
-            이미지 직접 올리기
+            {t("beforeAfter.directUpload")}
           </Button>
           <input
             ref={fileInputRef}
@@ -179,7 +181,7 @@ export function BeforeAfterView({
         {/* Current image preview */}
         <div className="w-full max-w-md">
           <p className="text-xs text-muted-foreground mb-2">
-            {isReplacing ? "현재 After" : "Before"}
+            {isReplacing ? t("beforeAfter.currentAfter") : "Before"}
           </p>
           <div className="rounded-lg overflow-hidden border bg-muted/30">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -209,19 +211,19 @@ export function BeforeAfterView({
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 text-center">
-          <h3 className="text-lg font-semibold mb-1">Before / After</h3>
+          <h3 className="text-lg font-semibold mb-1">{t("beforeAfter.title")}</h3>
           <p className="text-sm text-muted-foreground">
-            슬라이더를 움직여서 비교해보세요
+            {t("beforeAfter.description")}
           </p>
         </div>
         <button
           type="button"
           onClick={() => setIsReplacing(true)}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted/50"
-          title="After 이미지 다시 올리기"
+          title={t("beforeAfter.reuploadTitle")}
         >
           <RefreshCw className="h-3 w-3" />
-          다시 올리기
+          {t("beforeAfter.reupload")}
         </button>
       </div>
 
@@ -291,9 +293,11 @@ export function BeforeAfterView({
       {authorEntries.length > 0 && (
         <div className="w-full max-w-2xl mx-auto mt-2">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-semibold">적용된 피드백</h4>
+            <h4 className="text-sm font-semibold">{t("beforeAfter.appliedFeedback")}</h4>
             <span className="text-xs text-muted-foreground">
-              {appliedAnnotations.length}개 반영 · 디자이너 {authorEntries.length}명
+              {t("beforeAfter.appliedCount")
+                .replace("{count}", String(appliedAnnotations.length))
+                .replace("{designers}", String(authorEntries.length))}
             </span>
           </div>
 
