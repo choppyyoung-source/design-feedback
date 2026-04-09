@@ -90,6 +90,7 @@ export default function Home() {
   const [publicProjects, setPublicProjects] = useState<StoredProject[]>([]);
   const [landingPath, setLandingPath] = useState<"give" | "receive" | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Auth: restore session + listen for changes
   useEffect(() => {
@@ -115,6 +116,7 @@ export default function Home() {
           loadProjects(null);
         }
       } catch { /* ignore */ }
+      setAuthLoading(false);
       return;
     }
 
@@ -137,6 +139,7 @@ export default function Home() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     supabase.auth.getSession().then(({ data: { session } }: any) => {
       setUserFromSession(session);
+      setAuthLoading(false);
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -481,6 +484,12 @@ export default function Home() {
 
   // No project open → show dashboard or upload
   if (!project) {
+    // Wait for auth to resolve before deciding landing vs dashboard
+    // (prevents landing page flash when user is already logged in)
+    if (authLoading) {
+      return <div className="flex-1 min-h-screen bg-background" />;
+    }
+
     // Dashboard if logged in with projects
     if (user && (myProjects.length > 0 || dashboardTab !== "requested") && !showUpload && !landingPath) {
       const reviewItems = myProjects.map((sp) => ({
