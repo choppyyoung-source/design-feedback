@@ -318,13 +318,37 @@ export function ReviewCanvas({
     const outer = outerRef.current;
     if (!outer) return;
 
-    // Zoom with ctrl/cmd + scroll
+    // Figma-style wheel behavior:
+    //   - Ctrl/Cmd + wheel (or trackpad pinch) → zoom toward cursor
+    //   - Plain wheel / two-finger trackpad scroll → pan canvas
     const wheelHandler = (e: WheelEvent) => {
       if (!outer.contains(e.target as Node)) return;
+
       if (e.ctrlKey || e.metaKey) {
+        // Zoom toward the cursor position
         e.preventDefault();
         e.stopPropagation();
-        setZoom((prev) => Math.min(3, Math.max(0.25, prev - e.deltaY * 0.002)));
+        const rect = outer.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+
+        setZoom((prevZoom) => {
+          const nextZoom = Math.min(3, Math.max(0.25, prevZoom - e.deltaY * 0.005));
+          const ratio = nextZoom / prevZoom;
+          setPan((prevPan) => ({
+            x: cursorX - (cursorX - prevPan.x) * ratio,
+            y: cursorY - (cursorY - prevPan.y) * ratio,
+          }));
+          return nextZoom;
+        });
+      } else {
+        // Pan the canvas with plain scroll / two-finger swipe
+        e.preventDefault();
+        e.stopPropagation();
+        setPan((prev) => ({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        }));
       }
     };
 
