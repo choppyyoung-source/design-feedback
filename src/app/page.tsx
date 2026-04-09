@@ -170,6 +170,8 @@ export default function Home() {
         saveProject(updated, pageAnnotations);
       }
       refreshProjects(authedUser.email);
+      // 로그인 후 대시보드로 (랜딩에서 온 경우 랜딩 경로 해제)
+      setLandingPath(null);
     },
     [project, pageAnnotations, setProject, refreshProjects]
   );
@@ -494,8 +496,8 @@ export default function Home() {
       );
     }
 
-    // Dashboard if logged in with projects
-    if (user && (myProjects.length > 0 || dashboardTab !== "requested") && !showUpload && !landingPath) {
+    // 로그인되어 있으면 무조건 대시보드 (프로젝트 0개여도 대시보드가 empty state 처리)
+    if (user && !showUpload && !landingPath) {
       const reviewItems = myProjects.map((sp) => ({
         review: {
           id: sp.project.id,
