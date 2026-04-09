@@ -239,10 +239,31 @@ function rowToProfile(row: Record<string, unknown>): UserProfile {
     linkedinUrl: row.linkedin_url as string | undefined,
     portfolioUrl: row.portfolio_url as string | undefined,
     isPrivate: row.is_private as boolean,
-    stripeAccountId: row.stripe_account_id as string | undefined,
-    stripeOnboarded: row.stripe_onboarded as boolean,
+    // payout fields come from profile_private (RLS-protected),
+    // loaded separately by dbGetProfile when the caller is the owner.
     ratings: [], // loaded separately
     createdAt: row.created_at as string,
+  };
+}
+
+// Loads owner-only payout fields from profile_private. RLS will return null
+// when the caller is not the row owner — which is exactly what we want.
+async function loadPrivateProfile(email: string): Promise<{
+  payoutMethod?: "paypal" | "bank" | null;
+  paypalEmail?: string;
+  bankInfo?: string;
+}> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("profile_private")
+    .select("payout_method, paypal_email, bank_info")
+    .eq("email", email)
+    .maybeSingle();
+  if (!data) return {};
+  return {
+    payoutMethod: data.payout_method as "paypal" | "bank" | null | undefined,
+    paypalEmail: data.paypal_email as string | undefined,
+    bankInfo: data.bank_info as string | undefined,
   };
 }
 
@@ -277,6 +298,13 @@ export async function dbGetProfile(email: string): Promise<UserProfile | null> {
 
   const profile = rowToProfile(data);
   profile.ratings = await loadRatings(email);
+
+  // Owner-only payout data — RLS returns nothing for non-owners.
+  const priv = await loadPrivateProfile(email);
+  profile.payoutMethod = priv.payoutMethod;
+  profile.paypalEmail = priv.paypalEmail;
+  profile.bankInfo = priv.bankInfo;
+
   return profile;
 }
 
@@ -293,9 +321,24 @@ export async function dbSaveProfile(profile: UserProfile): Promise<void> {
     linkedin_url: profile.linkedinUrl ?? null,
     portfolio_url: profile.portfolioUrl ?? null,
     is_private: profile.isPrivate ?? false,
-    stripe_account_id: profile.stripeAccountId ?? null,
-    stripe_onboarded: profile.stripeOnboarded ?? false,
   });
+
+  // Payout data lives in profile_private (RLS-locked to the owner). Only
+  // upsert if the caller actually has values to write — avoids needlessly
+  // creating an empty private row.
+  const hasPrivateData =
+    profile.payoutMethod !== undefined ||
+    profile.paypalEmail !== undefined ||
+    profile.bankInfo !== undefined;
+  if (hasPrivateData) {
+    await supabase.from("profile_private").upsert({
+      email: profile.email,
+      payout_method: profile.payoutMethod ?? null,
+      paypal_email: profile.paypalEmail ?? null,
+      bank_info: profile.bankInfo ?? null,
+      updated_at: new Date().toISOString(),
+    });
+  }
 }
 
 export async function dbGetAllProfiles(): Promise<UserProfile[]> {

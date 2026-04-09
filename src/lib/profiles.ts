@@ -16,6 +16,19 @@ export type DesignerSpecialty =
   | "fullstack"
   | "other";
 
+// i18n keys for specialty labels — use t(`specialty.${key}`) to get translated label
+export const SPECIALTY_KEYS: Record<DesignerSpecialty, string> = {
+  "ui-ux": "specialty.ui-ux",
+  graphic: "specialty.graphic",
+  product: "specialty.product",
+  brand: "specialty.brand",
+  motion: "specialty.motion",
+  frontend: "specialty.frontend",
+  fullstack: "specialty.fullstack",
+  other: "specialty.other",
+};
+
+// Legacy compat — returns Korean labels (use SPECIALTY_KEYS + t() for i18n)
 export const SPECIALTY_LABELS: Record<DesignerSpecialty, string> = {
   "ui-ux": "UI/UX 디자이너",
   graphic: "그래픽 디자이너",
@@ -36,8 +49,6 @@ export interface UserProfile {
   linkedinUrl?: string;
   portfolioUrl?: string;
   isPrivate?: boolean;
-  stripeAccountId?: string;
-  stripeOnboarded?: boolean;
   payoutMethod?: "paypal" | "bank" | null;
   paypalEmail?: string;
   bankInfo?: string; // 은행명 + 계좌번호 (자유 입력)
@@ -64,6 +75,14 @@ function _lsSaveAll(profiles: Record<string, UserProfile>) {
 }
 
 // ─── Public API (Supabase + localStorage fallback) ───
+
+// Sync — instant localStorage read (for fast initial paint)
+export function getAllProfilesLocal(): UserProfile[] {
+  if (typeof window === "undefined") return [];
+  return Object.values(_lsGetAll()).sort(
+    (a, b) => b.createdAt.localeCompare(a.createdAt)
+  );
+}
 
 export async function getProfile(email: string): Promise<UserProfile | null> {
   if (isSupabaseConfigured()) {

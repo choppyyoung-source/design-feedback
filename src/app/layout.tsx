@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { LanguageProvider } from "@/lib/i18n";
 import "./globals.css";
@@ -13,34 +14,31 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://design-feedback-nine.vercel.app";
+const SITE_NAME = "Design Feedback";
+const TITLE = "Design Feedback — Real designer feedback, AI handles the fix";
+const DESCRIPTION =
+  "Drop your design. Get honest reviews from real designers. Apply the fixes with AI in minutes. Free to start.";
+
+// Cloudflare Web Analytics beacon token (set NEXT_PUBLIC_CF_ANALYTICS_TOKEN to enable)
+const CF_ANALYTICS_TOKEN = process.env.NEXT_PUBLIC_CF_ANALYTICS_TOKEN;
+
 export const metadata: Metadata = {
-  title: "Design Feedback — Get design reviews, apply with AI",
-  description:
-    "Upload your design or paste a link. Get actionable feedback from designers, then apply it directly with AI. Free, no sign-up required.",
-  metadataBase: new URL("https://design-feedback-hykim-permissionlabs-projects.vercel.app"),
+  title: TITLE,
+  description: DESCRIPTION,
+  metadataBase: new URL(SITE_URL),
   openGraph: {
-    title: "Design Feedback — Get design reviews, apply with AI",
-    description:
-      "Upload your design or paste a link. Get actionable feedback from designers, then apply it directly with AI.",
-    url: "https://design-feedback-hykim-permissionlabs-projects.vercel.app",
-    siteName: "Design Feedback",
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
     locale: "en_US",
     type: "website",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Design Feedback — AI-powered design review tool",
-      },
-    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Design Feedback — Get design reviews, apply with AI",
-    description:
-      "Upload your design or paste a link. Get actionable feedback from designers, then apply it directly with AI.",
-    images: ["/og-image.png"],
+    title: TITLE,
+    description: DESCRIPTION,
   },
 };
 
@@ -53,6 +51,13 @@ export default function RootLayout({
     <html lang="ko" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <LanguageProvider>{children}</LanguageProvider>
+        {CF_ANALYTICS_TOKEN && (
+          <Script
+            strategy="afterInteractive"
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={`{"token": "${CF_ANALYTICS_TOKEN}"}`}
+          />
+        )}
       </body>
     </html>
   );

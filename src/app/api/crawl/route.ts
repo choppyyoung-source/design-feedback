@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SSRFError, validateFetchUrl } from "@/lib/security/ssrf";
+import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req.headers);
+  const rl = rateLimit({
+    key: `crawl:${ip}`,
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: { "retry-after": String(Math.ceil(rl.resetMs / 1000)) },
+      }
+    );
+  }
+
   const { url } = await req.json();
 
   if (!url || typeof url !== "string") {
@@ -9,8 +27,11 @@ export async function POST(req: NextRequest) {
 
   let parsedUrl: URL;
   try {
-    parsedUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
-  } catch {
+    parsedUrl = await validateFetchUrl(url);
+  } catch (e) {
+    if (e instanceof SSRFError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 

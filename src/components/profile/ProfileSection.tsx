@@ -19,10 +19,11 @@ import {
   saveProfile,
   getProfile,
   addRating,
-  SPECIALTY_LABELS,
+  SPECIALTY_KEYS,
 } from "@/lib/profiles";
 import { getEmoji } from "@/lib/avatar";
 import { useT } from "@/lib/i18n";
+import { sanitizeLinkHref } from "@/lib/security/url";
 
 // ── Design tokens (Notion style) ──
 const CARD = "bg-white border border-[rgba(0,0,0,0.1)]";
@@ -205,8 +206,8 @@ export function ProfileSection({
                   <SelectValue placeholder={t("profile.specialtyPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(SPECIALTY_LABELS).map(([val, label]) => (
-                    <SelectItem key={val} value={val}>{label}</SelectItem>
+                  {Object.entries(SPECIALTY_KEYS).map(([val, key]) => (
+                    <SelectItem key={val} value={val}>{t(key)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -300,7 +301,7 @@ export function ProfileSection({
               <h2 className="text-lg font-bold">{profile!.name}</h2>
               <div className="flex items-center justify-center gap-2 mt-1.5">
                 <span className="text-sm px-2.5 py-0.5 rounded-full bg-[#f2f9ff] text-primary font-medium">
-                  {SPECIALTY_LABELS[profile!.specialty]}
+                  {t(SPECIALTY_KEYS[profile!.specialty])}
                 </span>
                 {avgRating !== null && (
                   <span className="flex items-center gap-1 text-sm text-[#615d59]">
@@ -326,28 +327,34 @@ export function ProfileSection({
                 <ExternalLink className="h-3 w-3" />
                 {t("profile.email")}
               </a>
-              {profile!.linkedinUrl && (
-                <a
-                  href={profile!.linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f6f5f4] text-sm font-medium text-[#615d59] hover:bg-[#f6f5f4] transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  LinkedIn
-                </a>
-              )}
-              {profile!.portfolioUrl && (
-                <a
-                  href={profile!.portfolioUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f6f5f4] text-sm font-medium text-[#615d59] hover:bg-[#f6f5f4] transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  {t("profile.portfolio")}
-                </a>
-              )}
+              {(() => {
+                const linkedinHref = sanitizeLinkHref(profile!.linkedinUrl);
+                return linkedinHref ? (
+                  <a
+                    href={linkedinHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f6f5f4] text-sm font-medium text-[#615d59] hover:bg-[#f6f5f4] transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    LinkedIn
+                  </a>
+                ) : null;
+              })()}
+              {(() => {
+                const portfolioHref = sanitizeLinkHref(profile!.portfolioUrl);
+                return portfolioHref ? (
+                  <a
+                    href={portfolioHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f6f5f4] text-sm font-medium text-[#615d59] hover:bg-[#f6f5f4] transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    {t("profile.portfolio")}
+                  </a>
+                ) : null;
+              })()}
             </div>
 
             {/* Payout settings — own profile only */}
@@ -712,6 +719,16 @@ function PayoutSettings({ profile, onUpdate }: { profile: UserProfile; onUpdate:
           )}
         </div>
         <p className="text-[12px] text-[#615d59] leading-relaxed">{t("payout.desc")}</p>
+
+        {/* Terms notice — fee + payout timing */}
+        <div className="rounded-md bg-[#fef9e7] border border-[#f1c40f]/30 px-3 py-2 space-y-1">
+          <p className="text-[12px] text-[#615d59] leading-relaxed">
+            <span className="font-medium text-[rgba(0,0,0,0.85)]">•</span> {t("payout.feeNotice")}
+          </p>
+          <p className="text-[12px] text-[#615d59] leading-relaxed">
+            <span className="font-medium text-[rgba(0,0,0,0.85)]">•</span> {t("payout.timingNotice")}
+          </p>
+        </div>
 
         {/* Method toggle */}
         <div className="flex gap-1.5">

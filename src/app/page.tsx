@@ -33,6 +33,7 @@ import {
   type StoredProject,
 } from "@/lib/storage";
 import { markProjectSeen } from "@/lib/notifications";
+import { getProfile, saveProfile } from "@/lib/profiles";
 import type { Annotation, Project, Review, ReviewPage } from "@/types";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useT, LanguageToggle } from "@/lib/i18n";
@@ -86,6 +87,7 @@ export default function Home() {
   const [capturingPages, setCapturingPages] = useState<Set<string>>(new Set());
   const [dashboardTab, setDashboardTab] = useState<"requested" | "commented" | "directory" | "profile">("requested");
   const [viewProfileEmail, setViewProfileEmail] = useState<string | null>(null);
+  const [viewProfileAutoRate, setViewProfileAutoRate] = useState(false);
   const [requestingDesigner, setRequestingDesigner] = useState<string | null>(null);
   const [myProjects, setMyProjects] = useState<StoredProject[]>([]);
   const [publicProjects, setPublicProjects] = useState<StoredProject[]>([]);
@@ -184,8 +186,23 @@ export default function Home() {
         saveProject(updated, pageAnnotations);
       }
       refreshProjects(authedUser.email);
-      // 로그인 후 대시보드로 (랜딩에서 온 경우 랜딩 경로 해제)
+      // Go to dashboard after login
       setLandingPath(null);
+      // Auto-create profile if not exists
+      getProfile(authedUser.email).then((existing) => {
+        if (!existing) {
+          const defaultName = authedUser.name || authedUser.email.split("@")[0];
+          saveProfile({
+            email: authedUser.email,
+            name: defaultName,
+            specialty: "ui-ux",
+            bio: "",
+            experience: "",
+            ratings: [],
+            createdAt: new Date().toISOString(),
+          });
+        }
+      });
     },
     [project, pageAnnotations, setProject, refreshProjects]
   );
@@ -240,6 +257,8 @@ export default function Home() {
       loadAllAnnotations({});
       setIsPinMode(true);
       setShowUpload(false);
+      // Save to Supabase immediately
+      saveProject(newProject, {});
 
       // Show discovered links if any
       if (data.discoveredLinks && data.discoveredLinks.length > 0) {
@@ -315,6 +334,8 @@ export default function Home() {
         loadAllAnnotations({});
         setIsPinMode(true);
         setShowUpload(false);
+        // Save to Supabase immediately
+        saveProject(newProject, {});
       };
       img.src = previewUrl;
     },
@@ -510,7 +531,7 @@ export default function Home() {
       );
     }
 
-    // 로그인되어 있으면 무조건 대시보드 (프로젝트 0개여도 대시보드가 empty state 처리)
+    // Dashboard if logged in with projects
     if (user && !showUpload && !landingPath) {
       const reviewItems = myProjects.map((sp) => ({
         review: {
@@ -685,9 +706,14 @@ export default function Home() {
                   const feedbackItems: { id: string; comment: string; severity: string; projectName: string; createdAt: string; isApplied: boolean }[] = [];
                   const feedbackProjectMap = new Map<string, { id: string; name: string; feedbackCount: number; imageUrl?: string }>();
                   const requestedProjects: { id: string; name: string; feedbackCount: number; imageUrl?: string }[] = [];
-                  // myProjects = 내가 만든 프로젝트, publicProjects = 남이 만든 공개 프로젝트
-                  // 내 코멘트는 publicProjects 쪽에 있어서 둘 다 훑어야 함
-                  const allProjectsForStats = [...myProjects, ...publicProjects];
+                  // myProjects = 내가 만든 프로젝트, publicProjects = 남이 만든 'receiving' 프로젝트,
+                  // completedProjects = 완료된 모든 프로젝트. 완료된 남의 프로젝트에 남긴 내 피드백이
+                  // 집계에서 빠지던 버그 방지용으로 completedProjects도 포함. Map dedupe로 중복 제거.
+                  const projectById = new Map<string, (typeof myProjects)[number]>();
+                  for (const sp of [...myProjects, ...publicProjects, ...completedProjects]) {
+                    projectById.set(sp.project.id, sp);
+                  }
+                  const allProjectsForStats = Array.from(projectById.values());
                   allProjectsForStats.forEach((sp) => {
                     const isOwner = sp.project.created_by === user.email;
                     const allAnnotations = Object.values(sp.annotations).flat() as Annotation[];
@@ -770,8 +796,14 @@ export default function Home() {
                     const feedbackItems: { id: string; comment: string; severity: string; projectName: string; createdAt: string; isApplied: boolean }[] = [];
                     const feedbackProjectMap = new Map<string, { id: string; name: string; feedbackCount: number; imageUrl?: string }>();
                     const requestedProjects: { id: string; name: string; feedbackCount: number; imageUrl?: string }[] = [];
-                    // 이 디자이너가 만든 프로젝트는 publicProjects에, 내가 만든 프로젝트에 이 디자이너가 남긴 코멘트는 myProjects에
-                    const allProjectsForStats = [...myProjects, ...publicProjects];
+                    // 이 디자이너가 만든 프로젝트는 publicProjects/completedProjects에,
+                    // 내가 만든 프로젝트에 이 디자이너가 남긴 코멘트는 myProjects에.
+                    // completedProjects 빠뜨리면 완료된 프로젝트 기록이 통째로 누락됨.
+                    const projectById = new Map<string, (typeof myProjects)[number]>();
+                    for (const sp of [...myProjects, ...publicProjects, ...completedProjects]) {
+                      projectById.set(sp.project.id, sp);
+                    }
+                    const allProjectsForStats = Array.from(projectById.values());
                     allProjectsForStats.forEach((sp) => {
                       const isOwner = sp.project.created_by === viewProfileEmail;
                       const allAnnotations = Object.values(sp.annotations).flat() as Annotation[];
@@ -1121,14 +1153,25 @@ export default function Home() {
             </Button>
           )}
           {project.status === "applying" && user?.email === project.created_by && (
-            <Button
-              size="sm"
-              onClick={handleMarkCompleted}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              {t("export.markCompleted")}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExport(true)}
+                disabled={annotations.length === 0}
+              >
+                <FileOutput className="h-4 w-4 mr-1.5" />
+                {t("export.reexport")}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleMarkCompleted}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                {t("export.markCompleted")}
+              </Button>
+            </>
           )}
           {project.status === "completed" && (
             <Button
@@ -1274,6 +1317,7 @@ export default function Home() {
               beforeImageUrl={activePage?.image_url ?? project.pages[0]?.image_url ?? ""}
               afterImageUrl={project.completedImageUrl}
               projectName={project.name}
+              currentUserEmail={user?.email}
               appliedAnnotations={(() => {
                 const appliedIds = new Set(project.appliedCommentIds ?? []);
                 if (appliedIds.size === 0) return [];
@@ -1286,6 +1330,11 @@ export default function Home() {
               }}
               onUploadAfter={(img) => {
                 handleAfterImageSet(img);
+              }}
+              onProfileClick={(email, options) => {
+                setShowComplete(false);
+                setViewProfileAutoRate(!!options?.openRating);
+                setViewProfileEmail(email);
               }}
             />
           </div>
@@ -1393,10 +1442,16 @@ export default function Home() {
         return (
           <ProfileViewModal
             open={!!viewProfileEmail}
-            onOpenChange={(open) => { if (!open) setViewProfileEmail(null); }}
+            onOpenChange={(open) => {
+              if (!open) {
+                setViewProfileEmail(null);
+                setViewProfileAutoRate(false);
+              }
+            }}
             email={viewProfileEmail}
             currentUserEmail={user?.email}
             contribution={{ totalComments, appliedComments, projectCount }}
+            autoShowRating={viewProfileAutoRate}
           />
         );
       })()}

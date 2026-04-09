@@ -260,7 +260,7 @@ export function ReviewGrid({
                 </p>
 
                 {/* Status + meta row */}
-                <div className="flex items-center gap-2" style={{ marginTop: 10 }}>
+                <div className="flex items-center gap-2 min-w-0" style={{ marginTop: 10 }}>
                   {/* Pill Badge Button: per-status bg/text, 9999px radius, 12px weight 600 */}
                   <span
                     className="inline-flex items-center gap-1.5"
@@ -273,6 +273,8 @@ export function ReviewGrid({
                       fontWeight: 600,
                       letterSpacing: "0.125px",
                       lineHeight: 1.33,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
                     <span
@@ -289,7 +291,17 @@ export function ReviewGrid({
                   </span>
 
                   {/* Micro Label: 12px weight 400 */}
-                  <span style={{ fontSize: 12, fontWeight: 400, color: "#a39e98", letterSpacing: "0.125px", marginLeft: "auto" }}>
+                  <span
+                    className="truncate"
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 400,
+                      color: "#a39e98",
+                      letterSpacing: "0.125px",
+                      marginLeft: "auto",
+                      minWidth: 0,
+                    }}
+                  >
                     {annotations.length}{t("dashboard.feedbackCount")} · {formatDate(updatedAt, t)}
                   </span>
                 </div>

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Zap, MessageCircle, Send, AlertCircle } from "lucide-react";
 import { getEmoji } from "@/lib/avatar";
-import { getProfile, SPECIALTY_LABELS } from "@/lib/profiles";
+import { getProfile, SPECIALTY_KEYS } from "@/lib/profiles";
 import { useT } from "@/lib/i18n";
 
 interface PlanDef {
@@ -148,7 +148,7 @@ export function FeedbackRequestModal({
             <div className="min-w-0">
               <p className="text-[13px] font-semibold">{profile.name}</p>
               <p className="text-[13px] text-primary/60 font-medium">
-                {SPECIALTY_LABELS[profile.specialty]}
+                {t(SPECIALTY_KEYS[profile.specialty])}
               </p>
             </div>
             {designerHasPayout && (

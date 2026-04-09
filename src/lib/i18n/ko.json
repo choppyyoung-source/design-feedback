@@ -1,10 +1,10 @@
 {
   "landing.title": "Design Feedback",
-  "landing.subtitle": "디자이너의 피드백을 받고,\nAI에서 바로 적용하세요.",
+  "landing.subtitle": "진짜 디자이너 피드백,\nAI로 바로 반영.",
   "landing.giveFeedback": "피드백 남기기",
-  "landing.giveFeedbackDesc": "다른 사람들의 프로젝트를 탐색하고, 피드백을 남겨보세요",
+  "landing.giveFeedbackDesc": "다른 디자이너 작업에 한마디 남겨주세요",
   "landing.receiveFeedback": "피드백 받기",
-  "landing.receiveFeedbackDesc": "링크나 이미지를 올리고, 디자이너의 피드백을 받아보세요",
+  "landing.receiveFeedbackDesc": "작업물 올리면 디자이너가 봐줘요",
   "landing.alreadyHaveAccount": "이미 계정이 있나요?",
   "landing.projectsNeedingFeedback": "피드백이 필요한 프로젝트",
   "landing.noProjectsNeedingFeedback": "아직 피드백이 필요한 프로젝트가 없어요",
@@ -34,6 +34,8 @@
   "auth.error.emailAlreadyExists": "이미 가입된 이메일이에요",
   "auth.error.invalidCredentials": "이메일 또는 비밀번호가 틀렸어요",
   "auth.error.generic": "오류가 발생했어요. 다시 시도해주세요",
+  "auth.emailSent": "이메일을 확인해주세요",
+  "auth.emailSentDesc": "인증 링크를 보냈어요. 링크를 클릭하면 가입이 완료돼요.",
   "auth.logout": "로그아웃",
 
   "dashboard.requestFeedback": "피드백 요청하기",
@@ -82,6 +84,7 @@
   "review.added": "추가됨",
   "review.add": "추가",
   "review.done": "완료",
+  "review.submitFeedback": "피드백 완료",
 
   "severity.mustFix": "필수 수정",
   "severity.shouldFix": "수정 권장",
@@ -126,6 +129,7 @@
   "export.markdownFooter": "Design Feedback에서 내보냄. AI 도구에 붙여넣어 구현 제안을 받으세요.",
   "export.beforeAfter": "Before / After 보기",
   "export.markCompleted": "반영 완료",
+  "export.reexport": "다시 내보내기",
   "export.resetToReceiving": "다시 피드백 받기",
 
   "beforeAfter.title": "Before / After",
@@ -144,6 +148,8 @@
   "beforeAfter.appliedFeedback": "적용된 피드백",
   "beforeAfter.appliedCount": "{count}개 반영 · 디자이너 {designers}명",
   "beforeAfter.back": "뒤로",
+  "beforeAfter.rate": "별점 주기",
+  "beforeAfter.rateDesigner": "이 디자이너 평가하기",
 
   "profile.edit": "편집",
   "profile.cancel": "취소",
@@ -188,17 +194,10 @@
   "profile.feedbackGivenProjects": "피드백 남긴 프로젝트",
   "profile.feedbackRequestedProjects": "피드백 요청한 프로젝트",
 
-  "profile.stripe.connected": "수익 받기 설정 완료",
-  "profile.stripe.connect": "수익 받기 설정 (Stripe)",
-  "profile.stripe.connecting": "연동 중...",
-  "profile.stripe.error": "Stripe 연동에 실패했어요",
-  "profile.stripe.errorGeneric": "Stripe 연동 중 오류가 발생했어요",
-  "profile.stripe.setupRequired": "Stripe Connect 설정이 필요해요",
-  "profile.stripe.setupDesc": "수익을 받으려면 먼저 Stripe 대시보드에서 Connect를 활성화해야 해요.",
-  "profile.stripe.setup": "설정하기",
-
   "payout.title": "정산 정보 설정",
   "payout.desc": "유료 피드백 수익을 받을 계좌 정보를 입력해주세요.",
+  "payout.feeNotice": "수수료 20%는 Design Feedback에서 가져가요.",
+  "payout.timingNotice": "피드백이 전부 전달되고 요청자가 확인하면 정산해드려요.",
   "payout.connected": "정산 정보 등록 완료",
   "payout.bankTransfer": "계좌이체",
   "payout.paypalPlaceholder": "PayPal 이메일 주소",
@@ -240,7 +239,7 @@
   "payment.processing": "처리 중...",
   "payment.sendRequest": "요청 보내기",
   "payment.requestWithPrice": "{price}로 피드백 요청하기",
-  "payment.stripeSecure": "Stripe 안전 결제 · 만족하지 않으면 환불",
+  "payment.stripeSecure": "안전 결제 · 만족하지 않으면 환불",
   "payment.checkoutError": "결제 세션 생성에 실패했어요",
   "payment.paymentError": "결제 처리 중 오류가 발생했어요",
 
@@ -266,5 +265,14 @@
   "common.close": "닫기",
   "common.confirm": "확인",
   "common.loading": "로딩 중...",
-  "common.error": "오류"
+  "common.error": "오류",
+
+  "specialty.ui-ux": "UI/UX 디자이너",
+  "specialty.graphic": "그래픽 디자이너",
+  "specialty.product": "프로덕트 디자이너",
+  "specialty.brand": "브랜드 디자이너",
+  "specialty.motion": "모션 디자이너",
+  "specialty.frontend": "프론트엔드 개발자",
+  "specialty.fullstack": "풀스택 개발자",
+  "specialty.other": "기타"
 }

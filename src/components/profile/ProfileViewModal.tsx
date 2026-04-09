@@ -10,9 +10,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ExternalLink, Star, MessageCircle, CheckCircle2, FolderOpen } from "lucide-react";
-import { type UserProfile, getProfile, addRating, SPECIALTY_LABELS } from "@/lib/profiles";
+import { type UserProfile, getProfile, addRating, SPECIALTY_KEYS } from "@/lib/profiles";
 import { getEmoji } from "@/lib/avatar";
 import { useT } from "@/lib/i18n";
+import { sanitizeLinkHref } from "@/lib/security/url";
 
 interface ContributionInfo {
   totalComments: number;
@@ -26,6 +27,8 @@ interface ProfileViewModalProps {
   email: string;
   currentUserEmail?: string;
   contribution?: ContributionInfo;
+  /** When true, the rating input opens immediately on modal open (used by "Rate" shortcut). */
+  autoShowRating?: boolean;
 }
 
 export function ProfileViewModal({
@@ -34,6 +37,7 @@ export function ProfileViewModal({
   email,
   currentUserEmail,
   contribution,
+  autoShowRating = false,
 }: ProfileViewModalProps) {
   const t = useT();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -44,6 +48,13 @@ export function ProfileViewModal({
   useEffect(() => {
     if (open && email) getProfile(email).then(setProfile);
   }, [open, email]);
+
+  // Sync auto-open-rating flag when modal opens or flag changes
+  useEffect(() => {
+    if (open && autoShowRating && currentUserEmail && currentUserEmail !== email) {
+      setShowRating(true);
+    }
+  }, [open, autoShowRating, currentUserEmail, email]);
 
   if (!profile) {
     return (
@@ -132,7 +143,7 @@ export function ProfileViewModal({
                 letterSpacing: "0.125px",
               }}
             >
-              {SPECIALTY_LABELS[profile.specialty]}
+              {t(SPECIALTY_KEYS[profile.specialty])}
             </span>
             {avgRating !== null && (
               <span className="flex items-center gap-1" style={{ fontSize: 13, color: "#615d59" }}>
@@ -197,44 +208,50 @@ export function ProfileViewModal({
             <ExternalLink className="h-3 w-3" />
             {t("profile.email")}
           </a>
-          {profile.linkedinUrl && (
-            <a
-              href={profile.linkedinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 transition-colors"
-              style={{
-                padding: "5px 12px",
-                borderRadius: 8,
-                backgroundColor: "#f6f5f4",
-                fontSize: 13,
-                fontWeight: 500,
-                color: "#615d59",
-              }}
-            >
-              <ExternalLink className="h-3 w-3" />
-              LinkedIn
-            </a>
-          )}
-          {profile.portfolioUrl && (
-            <a
-              href={profile.portfolioUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 transition-colors"
-              style={{
-                padding: "5px 12px",
-                borderRadius: 8,
-                backgroundColor: "#f6f5f4",
-                fontSize: 13,
-                fontWeight: 500,
-                color: "#615d59",
-              }}
-            >
-              <ExternalLink className="h-3 w-3" />
-              {t("profile.portfolio")}
-            </a>
-          )}
+          {(() => {
+            const linkedinHref = sanitizeLinkHref(profile.linkedinUrl);
+            return linkedinHref ? (
+              <a
+                href={linkedinHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 transition-colors"
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 8,
+                  backgroundColor: "#f6f5f4",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#615d59",
+                }}
+              >
+                <ExternalLink className="h-3 w-3" />
+                LinkedIn
+              </a>
+            ) : null;
+          })()}
+          {(() => {
+            const portfolioHref = sanitizeLinkHref(profile.portfolioUrl);
+            return portfolioHref ? (
+              <a
+                href={portfolioHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 transition-colors"
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 8,
+                  backgroundColor: "#f6f5f4",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#615d59",
+                }}
+              >
+                <ExternalLink className="h-3 w-3" />
+                {t("profile.portfolio")}
+              </a>
+            ) : null;
+          })()}
         </div>
 
         {/* Ratings section */}

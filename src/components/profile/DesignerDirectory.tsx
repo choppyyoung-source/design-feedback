@@ -8,7 +8,8 @@ import { Star, Search, ArrowLeft } from "lucide-react";
 import {
   type UserProfile,
   getAllProfiles,
-  SPECIALTY_LABELS,
+  getAllProfilesLocal,
+  SPECIALTY_KEYS,
 } from "@/lib/profiles";
 import { getEmoji } from "@/lib/avatar";
 import { useT } from "@/lib/i18n";
@@ -27,12 +28,24 @@ export function DesignerDirectory({
   currentUserEmail,
 }: DesignerDirectoryProps) {
   const t = useT();
-  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  // Seed from localStorage synchronously for instant paint
+  const [profiles, setProfiles] = useState<UserProfile[]>(() => getAllProfilesLocal());
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    getAllProfiles().then(setProfiles);
+    let cancelled = false;
+    getAllProfiles()
+      .then((data) => {
+        if (!cancelled) setProfiles(data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
-  const [search, setSearch] = useState("");
 
   const filtered = profiles
     .filter((p) => !p.isPrivate && p.email !== currentUserEmail)
@@ -42,7 +55,7 @@ export function DesignerDirectory({
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.email.toLowerCase().includes(search.toLowerCase()) ||
         p.bio.toLowerCase().includes(search.toLowerCase()) ||
-        SPECIALTY_LABELS[p.specialty].includes(search)
+        t(SPECIALTY_KEYS[p.specialty]).toLowerCase().includes(search.toLowerCase())
     );
 
   return (
@@ -68,10 +81,32 @@ export function DesignerDirectory({
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading && profiles.length === 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="p-4 border border-[rgba(0,0,0,0.1)] bg-card rounded-md animate-pulse"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-[#f6f5f4] flex-shrink-0" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="h-3 bg-[#f6f5f4] rounded w-24" />
+                  <div className="h-3 bg-[#f6f5f4] rounded w-16" />
+                </div>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                <div className="h-3 bg-[#f6f5f4] rounded w-full" />
+                <div className="h-3 bg-[#f6f5f4] rounded w-3/4" />
+              </div>
+              <div className="h-8 bg-[#f6f5f4] rounded mt-3" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div>
           <div className="p-14 text-center bg-card border border-[rgba(0,0,0,0.1)] rounded-md">
-            <div className="w-12 h-12 rounded-md bg-[#f6f5f4]flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 rounded-md bg-[#f6f5f4] flex items-center justify-center mx-auto mb-4">
               <span className="text-xl">🔍</span>
             </div>
             <p className="text-sm font-medium mb-1">
@@ -115,7 +150,7 @@ export function DesignerDirectory({
                         )}
                       </div>
                       <p className="text-[13px] text-primary/60 font-medium">
-                        {SPECIALTY_LABELS[profile.specialty]}
+                        {t(SPECIALTY_KEYS[profile.specialty])}
                       </p>
                     </div>
                     {/* Rating inline */}

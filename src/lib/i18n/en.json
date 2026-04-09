@@ -1,10 +1,10 @@
 {
   "landing.title": "Design Feedback",
-  "landing.subtitle": "Get feedback from designers,\napply it directly with AI.",
+  "landing.subtitle": "Real designer feedback.\nAI handles the fix.",
   "landing.giveFeedback": "Give Feedback",
-  "landing.giveFeedbackDesc": "Explore others' projects and leave feedback",
+  "landing.giveFeedbackDesc": "Review other designers. Build your rep.",
   "landing.receiveFeedback": "Get Feedback",
-  "landing.receiveFeedbackDesc": "Upload a link or image and get feedback from designers",
+  "landing.receiveFeedbackDesc": "Drop your work. Real designers will weigh in.",
   "landing.alreadyHaveAccount": "Already have an account?",
   "landing.projectsNeedingFeedback": "Projects Needing Feedback",
   "landing.noProjectsNeedingFeedback": "No projects need feedback yet",
@@ -34,6 +34,8 @@
   "auth.error.emailAlreadyExists": "This email is already registered",
   "auth.error.invalidCredentials": "Invalid email or password",
   "auth.error.generic": "An error occurred. Please try again",
+  "auth.emailSent": "Check your email",
+  "auth.emailSentDesc": "We sent a verification link. Click it to activate your account.",
   "auth.logout": "Log Out",
 
   "dashboard.requestFeedback": "Request Feedback",
@@ -82,6 +84,7 @@
   "review.added": "Added",
   "review.add": "Add",
   "review.done": "Done",
+  "review.submitFeedback": "Submit Feedback",
 
   "severity.mustFix": "Must Fix",
   "severity.shouldFix": "Should Fix",
@@ -126,6 +129,7 @@
   "export.markdownFooter": "Exported from Design Feedback. Paste into an AI tool to get implementation suggestions.",
   "export.beforeAfter": "View Before / After",
   "export.markCompleted": "Mark as Complete",
+  "export.reexport": "Export Again",
   "export.resetToReceiving": "Resume Feedback",
 
   "beforeAfter.title": "Before / After",
@@ -144,6 +148,8 @@
   "beforeAfter.appliedFeedback": "Applied Feedback",
   "beforeAfter.appliedCount": "{count} applied · {designers} designer(s)",
   "beforeAfter.back": "Back",
+  "beforeAfter.rate": "Rate",
+  "beforeAfter.rateDesigner": "Rate this designer",
 
   "profile.edit": "Edit",
   "profile.cancel": "Cancel",
@@ -188,17 +194,10 @@
   "profile.feedbackGivenProjects": "Projects I gave feedback on",
   "profile.feedbackRequestedProjects": "Projects I requested feedback for",
 
-  "profile.stripe.connected": "Earnings setup complete",
-  "profile.stripe.connect": "Set up earnings (Stripe)",
-  "profile.stripe.connecting": "Connecting...",
-  "profile.stripe.error": "Stripe connection failed",
-  "profile.stripe.errorGeneric": "An error occurred during Stripe connection",
-  "profile.stripe.setupRequired": "Stripe Connect setup required",
-  "profile.stripe.setupDesc": "To receive earnings, you need to activate Connect in your Stripe dashboard first.",
-  "profile.stripe.setup": "Set up",
-
   "payout.title": "Payout Settings",
   "payout.desc": "Enter your payout information to receive earnings from paid feedback.",
+  "payout.feeNotice": "Design Feedback takes a 20% platform fee.",
+  "payout.timingNotice": "You get paid once the requester confirms all feedback is delivered.",
   "payout.connected": "Payout info registered",
   "payout.bankTransfer": "Bank Transfer",
   "payout.paypalPlaceholder": "PayPal email address",
@@ -240,7 +239,7 @@
   "payment.processing": "Processing...",
   "payment.sendRequest": "Send Request",
   "payment.requestWithPrice": "Request feedback for {price}",
-  "payment.stripeSecure": "Secure Stripe payment - Refund if not satisfied",
+  "payment.stripeSecure": "Secure payment, refund if not satisfied",
   "payment.checkoutError": "Failed to create checkout session",
   "payment.paymentError": "An error occurred during payment processing",
 
@@ -266,5 +265,14 @@
   "common.close": "Close",
   "common.confirm": "OK",
   "common.loading": "Loading...",
-  "common.error": "Error"
+  "common.error": "Error",
+
+  "specialty.ui-ux": "UI/UX Designer",
+  "specialty.graphic": "Graphic Designer",
+  "specialty.product": "Product Designer",
+  "specialty.brand": "Brand Designer",
+  "specialty.motion": "Motion Designer",
+  "specialty.frontend": "Frontend Developer",
+  "specialty.fullstack": "Fullstack Developer",
+  "specialty.other": "Other"
 }

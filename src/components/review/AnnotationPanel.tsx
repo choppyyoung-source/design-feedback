@@ -104,7 +104,17 @@ export function AnnotationPanel({
         }}
         autoFocus
       />
-      <p className="text-[13px] text-[#a39e98] mt-1.5 px-1">{t("review.contextHelp")}</p>
+      <div className="flex items-center justify-between mt-2 px-1">
+        <p className="text-[13px] text-[#a39e98]">{t("review.contextHelp")}</p>
+        <Button
+          size="sm"
+          className="h-7 px-3 text-xs bg-[rgba(0,0,0,0.95)] hover:bg-[rgba(0,0,0,0.95)]/90"
+          disabled={!descDraft.trim()}
+          onClick={() => saveDesc(descDraft)}
+        >
+          {t("review.done")}
+        </Button>
+      </div>
     </div>
   ) : null;
 
@@ -115,7 +125,7 @@ export function AnnotationPanel({
           {descriptionBlock}
         </div>
         <div className="flex-1">
-          <EmptyState onLoginClick={onLoginClick} isProjectOwner={!!currentUserEmail && currentUserEmail === ownerEmail} />
+          <EmptyState onLoginClick={onLoginClick} isProjectOwner={!!currentUserEmail && currentUserEmail === ownerEmail} isLoggedIn={!!currentUserEmail} />
         </div>
       </div>
     );
@@ -415,12 +425,12 @@ function AnnotationItem({
   );
 }
 
-function EmptyState({ onLoginClick, isProjectOwner }: { onLoginClick?: () => void; isProjectOwner?: boolean }) {
+function EmptyState({ onLoginClick, isProjectOwner, isLoggedIn: isLoggedInProp }: { onLoginClick?: () => void; isProjectOwner?: boolean; isLoggedIn?: boolean }) {
   const t = useT();
-  const isLoggedIn =
-    typeof window !== "undefined" &&
+  const isLoggedIn = isLoggedInProp ??
+    (typeof window !== "undefined" &&
     (!!Object.keys(localStorage).find((k) => k.startsWith("sb-") && k.endsWith("-auth-token")) ||
-     !!localStorage.getItem("dr_session"));
+     !!localStorage.getItem("dr_session")));
 
   return (
     <div className="flex flex-col items-center justify-center h-full text-center px-6 py-16">

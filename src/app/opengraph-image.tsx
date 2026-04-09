@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Design Feedback — AI-powered design review tool";
+export const alt = "Design Feedback — Real designer feedback, AI handles the fix.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -14,116 +14,100 @@ export default function Image() {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#ffffff",
+          justifyContent: "space-between",
+          padding: "80px",
+          backgroundColor: "#fafaf9",
+          backgroundImage:
+            "radial-gradient(circle at 85% 15%, rgba(0,117,222,0.14), transparent 55%), radial-gradient(circle at 10% 90%, rgba(221,91,0,0.08), transparent 50%)",
           fontFamily: "Inter, system-ui, sans-serif",
         }}
       >
-        {/* Top accent bar */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: "#0075de",
-          }}
-        />
-
-        {/* Icon row */}
-        <div
-          style={{
-            display: "flex",
-            gap: 16,
-            marginBottom: 32,
-          }}
-        >
+        {/* Top: brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 12,
-              background: "#f2f9ff",
+              width: 60,
+              height: 60,
+              borderRadius: 14,
+              backgroundColor: "rgba(0,0,0,0.95)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              color: "#ffffff",
               fontSize: 28,
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
             }}
           >
-            📤
+            DF
           </div>
           <div
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 12,
-              background: "#f6f5f4",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
+              fontSize: 26,
+              fontWeight: 600,
+              color: "#615d59",
+              letterSpacing: "-0.01em",
             }}
           >
-            💬
+            Design Feedback
+          </div>
+        </div>
+
+        {/* Middle: headline */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div
+            style={{
+              fontSize: 90,
+              fontWeight: 800,
+              color: "rgba(0,0,0,0.95)",
+              letterSpacing: "-0.04em",
+              lineHeight: 1.02,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div>Real designer feedback.</div>
+            <div style={{ color: "#0075de" }}>AI handles the fix.</div>
           </div>
           <div
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 12,
-              background: "#f2f9ff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
+              fontSize: 30,
+              color: "#615d59",
+              fontWeight: 500,
+              letterSpacing: "-0.01em",
+              lineHeight: 1.3,
             }}
           >
-            ✨
+            Drop your work. Get reviewed. Ship the fix.
           </div>
         </div>
 
-        {/* Title */}
-        <div
-          style={{
-            fontSize: 64,
-            fontWeight: 700,
-            color: "rgba(0,0,0,0.95)",
-            letterSpacing: "-0.04em",
-            lineHeight: 1.05,
-            textAlign: "center",
-          }}
-        >
-          Design Feedback
-        </div>
-
-        {/* Subtitle */}
-        <div
-          style={{
-            fontSize: 24,
-            color: "#615d59",
-            marginTop: 16,
-            textAlign: "center",
-            lineHeight: 1.5,
-          }}
-        >
-          Get feedback from designers, apply it directly with AI.
-        </div>
-
-        {/* Bottom domain */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 32,
-            fontSize: 16,
-            color: "#a39e98",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          design-feedback.pages.dev
+        {/* Bottom: pill */}
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 22px",
+              borderRadius: 9999,
+              backgroundColor: "#ffffff",
+              border: "1px solid rgba(0,0,0,0.1)",
+              fontSize: 22,
+              fontWeight: 600,
+              color: "#0075de",
+            }}
+          >
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 9999,
+                backgroundColor: "#0075de",
+              }}
+            />
+            design-feedback-nine.vercel.app
+          </div>
         </div>
       </div>
     ),

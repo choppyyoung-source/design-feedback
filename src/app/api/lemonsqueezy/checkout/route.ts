@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { createServerSupabase } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { reportError } from "@/lib/monitoring/report-error";
 
 const LS_API_KEY = process.env.LEMONSQUEEZY_API_KEY!;
 const LS_STORE_ID = process.env.LEMONSQUEEZY_STORE_ID!;
@@ -11,11 +14,17 @@ const PLAN_VARIANTS: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
-    const { planId, designerEmail, customerEmail, returnUrl } =
-      await request.json();
+    const { planId, designerEmail } = await request.json();
 
-    if (!planId) {
-      return NextResponse.json({ error: "Missing plan" }, { status: 400 });
+    // Always derive return URL from the request origin server-side. Never trust
+    // a client-supplied returnUrl — that's an open-redirect vector.
+    const origin = request.headers.get("origin");
+    if (!origin) {
+      return NextResponse.json({ error: "Missing origin" }, { status: 400 });
+    }
+
+    if (!planId || !designerEmail) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
     const variantId = PLAN_VARIANTS[planId];
@@ -26,6 +35,30 @@ export async function POST(request: Request) {
     if (!LS_API_KEY || !LS_STORE_ID) {
       return NextResponse.json({ error: "LemonSqueezy not configured" }, { status: 500 });
     }
+
+    // Verify the designerEmail corresponds to a real registered designer.
+    // Without this check, an attacker could attribute payment metadata to any
+    // arbitrary email and confuse downstream payout/notification logic.
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+    }
+    const { data: designer } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("email", designerEmail)
+      .maybeSingle();
+    if (!designer) {
+      return NextResponse.json({ error: "Unknown designer" }, { status: 400 });
+    }
+
+    // Use the authenticated user's email for the customer record. Falls back
+    // to anonymous if not signed in (LemonSqueezy will collect at checkout).
+    const supabase = await createServerSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const customerEmail = user?.email;
 
     // Create checkout via LemonSqueezy API
     const res = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
@@ -48,7 +81,7 @@ export async function POST(request: Request) {
               },
             },
             product_options: {
-              redirect_url: `${returnUrl}?payment=success&plan=${planId}&designer=${designerEmail}`,
+              redirect_url: `${origin}?payment=success&plan=${planId}&designer=${encodeURIComponent(designerEmail)}`,
             },
           },
           relationships: {
@@ -62,7 +95,11 @@ export async function POST(request: Request) {
     const data = await res.json();
 
     if (!res.ok) {
-      console.error("LemonSqueezy error:", JSON.stringify(data));
+      reportError({
+        route: "api/lemonsqueezy/checkout",
+        error: new Error(`LemonSqueezy API ${res.status}: ${data?.errors?.[0]?.detail || "unknown"}`),
+        context: { status: res.status, body: data },
+      });
       return NextResponse.json(
         { error: data?.errors?.[0]?.detail || "Checkout creation failed" },
         { status: 500 }
@@ -72,7 +109,7 @@ export async function POST(request: Request) {
     const checkoutUrl = data?.data?.attributes?.url;
     return NextResponse.json({ url: checkoutUrl });
   } catch (error) {
-    console.error("LemonSqueezy Checkout error:", error);
+    reportError({ route: "api/lemonsqueezy/checkout", error });
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, Link, Loader2, RefreshCw, ArrowLeft } from "lucide-react";
+import { Upload, Link, Loader2, RefreshCw, ArrowLeft, Star } from "lucide-react";
 import { getEmoji } from "@/lib/avatar";
 import { getProfile, type UserProfile } from "@/lib/profiles";
 import { useT } from "@/lib/i18n";
@@ -16,6 +16,10 @@ interface BeforeAfterViewProps {
   onUploadAfter: (imageDataUrl: string) => void;
   /** Annotations that were marked as applied (already filtered). */
   appliedAnnotations?: Annotation[];
+  /** Called when the user clicks a designer (avatar / card) to open their profile. */
+  onProfileClick?: (email: string, options?: { openRating?: boolean }) => void;
+  /** Current viewer's email — used to hide the Rate button when self-rating. */
+  currentUserEmail?: string;
 }
 
 export function BeforeAfterView({
@@ -25,6 +29,8 @@ export function BeforeAfterView({
   onCaptureAfter,
   onUploadAfter,
   appliedAnnotations = [],
+  onProfileClick,
+  currentUserEmail,
 }: BeforeAfterViewProps) {
   const t = useT();
   const [sliderPos, setSliderPos] = useState(50);
@@ -306,10 +312,16 @@ export function BeforeAfterView({
             {authorEntries.map(([email, items]) => {
               const profile = profiles[email];
               const name = profile?.name || email.split("@")[0];
+              const clickable = !!onProfileClick;
               return (
-                <div
+                <button
                   key={email}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/50 border border-border/50"
+                  type="button"
+                  disabled={!clickable}
+                  onClick={() => onProfileClick?.(email)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/50 border border-border/50 ${
+                    clickable ? "hover:bg-muted hover:border-border transition-colors cursor-pointer" : ""
+                  }`}
                   title={email}
                 >
                   <span className="text-base leading-none">{getEmoji(email)}</span>
@@ -317,7 +329,7 @@ export function BeforeAfterView({
                   <span className="text-[10px] text-muted-foreground">
                     {items.length}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -327,17 +339,39 @@ export function BeforeAfterView({
             {appliedAnnotations.map((a) => {
               const profile = profiles[a.author_name];
               const name = profile?.name || a.author_name.split("@")[0];
+              const canRate =
+                !!onProfileClick &&
+                !!currentUserEmail &&
+                currentUserEmail !== a.author_name;
               return (
                 <div
                   key={a.id}
-                  className="flex gap-3 p-3 rounded-lg border bg-card"
+                  className="group flex gap-3 p-3 rounded-lg border bg-card hover:border-border/80 transition-colors"
                 >
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-base">
+                  <button
+                    type="button"
+                    disabled={!onProfileClick}
+                    onClick={() => onProfileClick?.(a.author_name)}
+                    className={`flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-base ${
+                      onProfileClick ? "hover:ring-2 hover:ring-border transition-all cursor-pointer" : ""
+                    }`}
+                    title={a.author_name}
+                    aria-label={a.author_name}
+                  >
                     {getEmoji(a.author_name)}
-                  </div>
+                  </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-semibold">{name}</span>
+                      <button
+                        type="button"
+                        disabled={!onProfileClick}
+                        onClick={() => onProfileClick?.(a.author_name)}
+                        className={`text-xs font-semibold ${
+                          onProfileClick ? "hover:underline cursor-pointer" : ""
+                        }`}
+                      >
+                        {name}
+                      </button>
                       {a.area_label && (
                         <span className="text-[10px] text-muted-foreground">
                           · {a.area_label}
@@ -348,6 +382,19 @@ export function BeforeAfterView({
                       {a.comment}
                     </p>
                   </div>
+                  {canRate && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onProfileClick?.(a.author_name, { openRating: true })
+                      }
+                      className="self-start flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-amber-600 hover:bg-amber-50 transition-colors"
+                      title={t("beforeAfter.rateDesigner")}
+                    >
+                      <Star className="h-3 w-3" />
+                      {t("beforeAfter.rate")}
+                    </button>
+                  )}
                 </div>
               );
             })}
